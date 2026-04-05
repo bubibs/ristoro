@@ -24,19 +24,14 @@ class App {
 
   // --- Theme ---
   setupTheme() {
-    const toggle = document.getElementById('theme-toggle');
-    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-    let isDark = localStorage.getItem('theme') === 'dark' || (!localStorage.getItem('theme') && prefersDark);
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    let isDark = localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : mediaQuery.matches;
     
     const applyTheme = () => {
       document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
       toggle.innerHTML = isDark ? '☀️' : '🌙';
-      localStorage.setItem('theme', isDark ? 'dark' : 'light');
       
-      // Update map tile layer if map exists
       if (this.map) {
-          // Leaflet doesn't have native dark mode well supported without custom tiles
-          // We apply a CSS invert filter to the map tiles via class if dark mode is active
           const mapEl = document.getElementById('main-map');
           if(mapEl) {
                if(isDark) mapEl.style.filter = "invert(90%) hue-rotate(180deg)";
@@ -45,8 +40,18 @@ class App {
       }
     };
 
+    // Ascolto cambio Dark Mode Automatico Sistema/iOS
+    mediaQuery.addEventListener('change', (e) => {
+      // Usiamo quello di sistema solo se l'utente non lo ha forzato manualmente via bottone
+      if(!localStorage.getItem('theme')) {
+         isDark = e.matches;
+         applyTheme();
+      }
+    });
+
     toggle.addEventListener('click', () => {
       isDark = !isDark;
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
       applyTheme();
     });
 
@@ -190,23 +195,35 @@ class App {
     if (!this.map) return;
     
     const types = ['work', 'hotels', 'restaurants'];
-    const colors = { work: '#FF5733', hotels: '#33A1FF', restaurants: '#FF33A1' };
+    const icons = { 
+        work: '💼', 
+        hotels: '🏨', 
+        restaurants: '🍽️' 
+    };
     
     for (const t of types) {
       const places = await DB.getPlaces(t);
       places.forEach(p => {
         if (p.lat && p.lng) {
             
-          const markerHtml = `<div style="background-color: ${colors[t]}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>`;
-          const customIcon = L.divIcon({ html: markerHtml, className: '', iconSize: [16,16]});
+          const markerHtml = `
+            <div style="font-size: 24px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); transform: translate(-50%, -100%);">
+              ${icons[t]}
+            </div>`;
+            
+          const customIcon = L.divIcon({ html: markerHtml, className: 'custom-emoji-icon', iconSize: [0,0]});
             
           const marker = L.marker([p.lat, p.lng], {icon: customIcon}).addTo(this.map);
           let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
           
           marker.bindPopup(`
-            <b>${p.name}</b><br>
-            ${p.address || ''}<br>
-            <a href="http://maps.apple.com/?daddr=${daddr}" target="_blank" style="display:block; margin-top:5px; color:#003366; font-weight:bold;">📍 Naviga (Apple Maps)</a>
+            <div style="text-align:center;">
+              <b style="font-size:1.1rem; color:var(--color-primary);">${p.name}</b><br>
+              <span style="color:gray; font-size: 0.9rem;">${p.address || ''}</span><br>
+              <a class="btn btn-primary btn-block" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" style="margin-top:10px; font-size:0.9rem;">
+                📍 Naviga su Apple Maps
+              </a>
+            </div>
           `);
         }
       });
@@ -239,7 +256,7 @@ class App {
       }
 
       let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
-      let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank">📍 Naviga</a>`;
+      let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank">📍 Avvia Navigatore</a>`;
 
       el.innerHTML = `
         <div class="list-item-title">${p.name} ${ratingHtml}</div>

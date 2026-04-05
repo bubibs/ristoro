@@ -211,6 +211,9 @@ body {
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  text-decoration: none; /* Rimuove sottolineatura dai link */
+  text-align: center; /* Centra il testo */
+  display: inline-block;
 }
 
 .btn-primary {
