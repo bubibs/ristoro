@@ -56,19 +56,25 @@
   <!-- Templates -->
   <template id="tmpl-home">
     <div class="view home-view">
-      <div class="status-card">
-        <div class="status-icon">📍</div>
-        <div class="status-info">
-          <h2>Posizione Attuale</h2>
-          <p id="current-location-text">Ricerca in corso...</p>
-        </div>
+      <div class="view-header">
+        <h2>Posizione e Vicinanze</h2>
       </div>
       
-      <div class="map-container">
+      <div style="margin-bottom:10px;">
+         <input type="search" class="search-bar" id="home-target-search" placeholder="Cerca Città per alloggi vicini + Invio" style="margin-bottom:5px;">
+         <div id="home-target-title" style="font-size:0.9rem; color:var(--color-accent); font-weight:bold; text-align:center;"></div>
+      </div>
+
+      <div id="map-container" class="map-container">
         <div id="main-map"></div>
-        <div class="map-overlay">
-          Mappa Dintorni
-        </div>
+      </div>
+      <div id="current-address" class="address-box">
+        Ottengo la posizione GPS...
+      </div>
+
+      <div id="home-nearby-results" style="margin-top: 20px; display:none;">
+         <h3 style="font-size:1.1rem; color:var(--text-main); margin-bottom:10px; border-bottom:1px solid var(--border-color); padding-bottom:5px;">Strutture nelle Vicinanze</h3>
+         <div id="nearby-list" class="list-container"></div>
       </div>
 
       <div class="quick-actions">
@@ -122,11 +128,6 @@
         <div class="form-group">
           <label>Telefono / Prenotazioni</label>
           <input type="tel" id="place-phone" name="phone" placeholder="+39 000 000 0000">
-        </div>
-
-        <div class="form-group">
-          <label>Etichette / Cantieri (Usa spazi o virgole)</label>
-          <input type="text" id="place-tags" name="tags" placeholder="CantiereA, Fiera Milano...">
         </div>
 
         <div class="form-group" id="rating-group" style="display:none;">

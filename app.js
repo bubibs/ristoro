@@ -15,7 +15,9 @@ class App {
   constructor() {
     this.currentView = 'home';
     this.currentLocation = null;
+    this.customSearchTarget = null;
     this.map = null;
+    this.markersLayer = null;
     this.markers = [];
     
     // Config: Tipi di luoghi
@@ -103,6 +105,20 @@ class App {
       this.currentView = 'home';
       this.updateNavState('home');
       await this.renderHome();
+      
+      const searchIn = document.getElementById('home-target-search');
+      if (searchIn) {
+         searchIn.addEventListener('keydown', (e) => {
+             if (e.key === 'Enter') {
+                 this.searchCustomTarget(e.target.value);
+             }
+         });
+      }
+      if (this.customSearchTarget) {
+          const tEl = document.getElementById('home-target-title');
+          if(tEl) tEl.innerText = "Centro Ricerca: " + this.customSearchTarget.name;
+          this.loadMapMarkers();
+      }
     } else {
       this.currentView = view;
       this.updateNavState(view);
@@ -242,6 +258,83 @@ class App {
         }
       });
     }
+    this.renderNearbyList();
+  }
+
+  async searchCustomTarget(cityOrName) {
+     const titleEl = document.getElementById('home-target-title');
+     if(titleEl) titleEl.innerText = "Ricerca in corso...";
+     try {
+         const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityOrName)}&format=json&limit=1`);
+         const data = await res.json();
+         if(data && data.length > 0) {
+             this.customSearchTarget = {
+                 lat: parseFloat(data[0].lat),
+                 lng: parseFloat(data[0].lon),
+                 name: data[0].display_name.split(',')[0]
+             };
+             if(titleEl) titleEl.innerText = "Centro spostato a: " + this.customSearchTarget.name;
+             this.loadMapMarkers();
+         } else {
+             if(titleEl) titleEl.innerText = "Nessun risultato trovato.";
+         }
+     } catch(e) {
+         if(titleEl) titleEl.innerText = "Errore di rete.";
+     }
+  }
+
+  setCustomTargetAndGoHome(lat, lng, name) {
+     this.customSearchTarget = { lat, lng, name };
+     this.navigate('home');
+  }
+
+  async renderNearbyList() {
+      const target = this.customSearchTarget || this.currentLocation;
+      if(!target || !target.lat || !target.lng) return;
+      
+      const resContainer = document.getElementById('home-nearby-results');
+      const listContainer = document.getElementById('nearby-list');
+      if(!resContainer || !listContainer) return;
+      
+      resContainer.style.display = 'block';
+      listContainer.innerHTML = '';
+      
+      let hotels = await DB.getPlaces('hotels');
+      let rests = await DB.getPlaces('restaurants');
+      let combined = hotels.map(h=>({...h, _type: 'hotels'})).concat(rests.map(r=>({...r, _type: 'restaurants'})));
+      
+      combined.forEach(p => {
+         if(p.lat && p.lng) {
+             p._dist = parseFloat(getDistance(target.lat, target.lng, p.lat, p.lng));
+         } else {
+             p._dist = Infinity;
+         }
+      });
+      
+      combined.sort((a,b) => a._dist - b._dist);
+      
+      combined.forEach(p => {
+          if (p._dist === Infinity) return;
+          const el = document.createElement('div');
+          el.className = 'list-item';
+          const icon = p._type === 'hotels' ? '🏨' : '🍽️';
+          
+          let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
+          let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga" style="padding:10px;">📍 Avvia Navigazione</a>`;
+          let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama" style="padding:10px;">📞</a>` : '';
+          
+          el.innerHTML = `
+              <div class="list-item-title" style="display:flex; align-items:center; margin-bottom:5px;">
+                 ${icon} ${p.name} 
+                 <span style="color:var(--color-primary); font-weight:bold; font-size:0.85rem; margin-left:auto;">🚗 ~${p._dist} km</span>
+              </div>
+              <div class="list-item-addr">${p.address || ''}</div>
+              <div class="list-item-actions" style="margin-top:10px; flex-direction:row; justify-content: flex-start; gap:10px;">
+                 ${navHtml} ${callHtml}
+              </div>
+          `;
+          listContainer.appendChild(el);
+      });
   }
 
   // 2. List View (Work, Hotels, Restaurants)
@@ -273,28 +366,29 @@ class App {
       let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga">📍</a>`;
       let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama">📞</a>` : '';
       
+      let distanceTarget = this.customSearchTarget || this.currentLocation;
       let distanceHtml = '';
-      if(this.currentLocation && p.lat && p.lng) {
-          const dist = getDistance(this.currentLocation.lat, this.currentLocation.lng, p.lat, p.lng);
+      if(distanceTarget && p.lat && p.lng) {
+          const dist = getDistance(distanceTarget.lat, distanceTarget.lng, p.lat, p.lng);
           if(dist) distanceHtml = `<span style="color:var(--color-primary); font-weight:bold; font-size:0.85rem; margin-left:8px; border:1px solid var(--color-primary); padding:2px 6px; border-radius:12px;">🚗 ~${dist} km</span>`;
       }
       
-      let tagsHtml = '';
-      if(p.tags && p.tags.length > 0) {
-          tagsHtml = `<div class="tags-container">${p.tags.map(t => `<span class="badge-tag">${t}</span>`).join('')}</div>`;
+      let findNearbyHtml = '';
+      if(type === 'work' && p.lat && p.lng) {
+         findNearbyHtml = `<button class="btn btn-icon find-nearby-btn" data-id="${p.id}" style="color:var(--color-accent); border-color:var(--color-accent);" title="Trova Vicinanze">🔎</button>`;
       }
 
-      el.dataset.search = `${p.name} ${p.address} ${p.notes || ''} ${p.tags ? p.tags.join(' ') : ''}`.toLowerCase();
+      el.dataset.search = `${p.name} ${p.address} ${p.notes || ''}`.toLowerCase();
 
       el.innerHTML = `
         <div class="list-item-title" style="display:flex; align-items:center;">${p.name} ${ratingHtml} ${distanceHtml}</div>
         <div class="list-item-addr">${p.address || 'Posizione GPS'}${p.phone ? ` <br><span style="color:var(--text-main);">📞 ${p.phone}</span>` : ''}</div>
-        ${tagsHtml}
         ${p.notes ? ` <div style="font-size:0.8rem; color:var(--text-muted); margin-top:8px;">${p.notes}</div>` : ''}
         
         <div class="list-item-actions">
           ${navHtml}
           ${callHtml}
+          ${findNearbyHtml}
           <button class="btn btn-icon share-btn" data-id="${p.id}" style="color:#25D366; border-color:#25D366;" title="Condividi">📤</button>
           <button class="btn btn-icon edit-btn" data-id="${p.id}" style="color:var(--color-primary);" title="Modifica">✏️</button>
           <button class="btn btn-icon delete-btn" data-id="${p.id}" style="color:#d9534f; border-color:#d9534f;" title="Elimina">🗑️</button>
@@ -311,6 +405,12 @@ class App {
              window.open(`https://wa.me/?text=${encodeURIComponent(textContent)}`, '_blank');
          }
       };
+      
+      if(type === 'work' && p.lat && p.lng) {
+          el.querySelector('.find-nearby-btn').onclick = () => {
+              this.setCustomTargetAndGoHome(p.lat, p.lng, p.name);
+          };
+      }
 
       el.querySelector('.edit-btn').onclick = () => {
          this.navigate(type, 'edit', p);
@@ -356,7 +456,6 @@ class App {
        document.getElementById('place-name').value = editData.name;
        document.getElementById('place-address').value = editData.address || '';
        document.getElementById('place-phone').value = editData.phone || '';
-       document.getElementById('place-tags').value = editData.tags ? editData.tags.join(', ') : '';
        document.getElementById('place-notes').value = editData.notes || '';
        if(editData.lat !== null) document.getElementById('place-lat').value = editData.lat;
        if(editData.lng !== null) document.getElementById('place-lng').value = editData.lng;
@@ -420,14 +519,10 @@ class App {
       let parsedLat = parseFloat(lat);
       let parsedLng = parseFloat(lng);
 
-      let tagsStr = document.getElementById('place-tags').value || '';
-      let tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean);
-
       const data = {
         name: document.getElementById('place-name').value,
         address: address,
         phone: document.getElementById('place-phone').value,
-        tags: tags,
         notes: document.getElementById('place-notes').value,
         lat: isNaN(parsedLat) ? null : parsedLat,
         lng: isNaN(parsedLng) ? null : parsedLng,
