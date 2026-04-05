@@ -61,7 +61,9 @@
       </div>
       
       <div style="margin-bottom:10px;">
-         <input type="search" class="search-bar" id="home-target-search" placeholder="Cerca Città per alloggi vicini + Invio" style="margin-bottom:5px;">
+         <form onsubmit="event.preventDefault(); window.app.searchCustomTarget(document.getElementById('home-target-search').value);">
+            <input type="search" class="search-bar" id="home-target-search" placeholder="Cerca Città (es. Roma) + Cerca" style="margin-bottom:5px;">
+         </form>
          <div id="home-target-title" style="font-size:0.9rem; color:var(--color-accent); font-weight:bold; text-align:center;"></div>
       </div>
 

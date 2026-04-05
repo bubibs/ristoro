@@ -181,14 +181,18 @@ class App {
         },
         (error) => {
           console.error(error);
-          locText.innerText = "Impossibile recuperare posizione";
-          // Default location (e.g. Rome/Milan centroid)
-          this.initMap(45.4642, 9.1900);
+          locText.innerText = "GPS Offline. Posizione di Default (Roma).";
+          this.currentLocation = { lat: 41.9028, lng: 12.4964 };
+          this.initMap(41.9028, 12.4964);
+          this.loadMapMarkers();
         },
-        { enableHighAccuracy: true }
+        { enableHighAccuracy: true, timeout: 5000 }
       );
     } else {
       locText.innerText = "Geolocalizzazione non supportata";
+      this.currentLocation = { lat: 41.9028, lng: 12.4964 };
+      this.initMap(41.9028, 12.4964);
+      this.loadMapMarkers();
     }
   }
 
