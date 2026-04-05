@@ -85,6 +85,7 @@
         <h2 id="list-title">Lista</h2>
         <button class="btn btn-sm btn-accent" id="add-new-btn">+ Aggiungi</button>
       </div>
+      <input type="search" id="list-search" class="search-bar" placeholder="Cerca nome, città o etichetta...">
       <div id="list-container" class="list-container">
         <!-- Items injected via JS -->
       </div>
@@ -121,6 +122,11 @@
         <div class="form-group">
           <label>Telefono / Prenotazioni</label>
           <input type="tel" id="place-phone" name="phone" placeholder="+39 000 000 0000">
+        </div>
+
+        <div class="form-group">
+          <label>Etichette / Cantieri (Usa spazi o virgole)</label>
+          <input type="text" id="place-tags" name="tags" placeholder="CantiereA, Fiera Milano...">
         </div>
 
         <div class="form-group" id="rating-group" style="display:none;">

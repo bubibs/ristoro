@@ -1,3 +1,15 @@
+// Utilità Distanza Haversine
+function getDistance(lat1, lon1, lat2, lon2) {
+  if(!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const p = 0.017453292519943295;
+  const c = Math.cos;
+  const a = 0.5 - c((lat2 - lat1) * p)/2 + 
+          c(lat1 * p) * c(lat2 * p) * 
+          (1 - c((lon2 - lon1) * p))/2;
+  const km = 12742 * Math.asin(Math.sqrt(a)); 
+  return km.toFixed(1);
+}
+
 // App Logic (Nessun import ES Module, usa variabili globali window.DB per compatibilità locale)
 class App {
   constructor() {
@@ -260,11 +272,25 @@ class App {
       let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
       let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga">📍</a>`;
       let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama">📞</a>` : '';
+      
+      let distanceHtml = '';
+      if(this.currentLocation && p.lat && p.lng) {
+          const dist = getDistance(this.currentLocation.lat, this.currentLocation.lng, p.lat, p.lng);
+          if(dist) distanceHtml = `<span style="color:var(--color-primary); font-weight:bold; font-size:0.85rem; margin-left:8px; border:1px solid var(--color-primary); padding:2px 6px; border-radius:12px;">🚗 ~${dist} km</span>`;
+      }
+      
+      let tagsHtml = '';
+      if(p.tags && p.tags.length > 0) {
+          tagsHtml = `<div class="tags-container">${p.tags.map(t => `<span class="badge-tag">${t}</span>`).join('')}</div>`;
+      }
+
+      el.dataset.search = `${p.name} ${p.address} ${p.notes || ''} ${p.tags ? p.tags.join(' ') : ''}`.toLowerCase();
 
       el.innerHTML = `
-        <div class="list-item-title">${p.name} ${ratingHtml}</div>
+        <div class="list-item-title" style="display:flex; align-items:center;">${p.name} ${ratingHtml} ${distanceHtml}</div>
         <div class="list-item-addr">${p.address || 'Posizione GPS'}${p.phone ? ` <br><span style="color:var(--text-main);">📞 ${p.phone}</span>` : ''}</div>
-        ${p.notes ? ` <div style="font-size:0.8rem; color:var(--text-muted);">${p.notes}</div>` : ''}
+        ${tagsHtml}
+        ${p.notes ? ` <div style="font-size:0.8rem; color:var(--text-muted); margin-top:8px;">${p.notes}</div>` : ''}
         
         <div class="list-item-actions">
           ${navHtml}
@@ -299,6 +325,18 @@ class App {
 
       container.appendChild(el);
     });
+
+    // Search Feature
+    const searchInput = document.getElementById('list-search');
+    if(searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            Array.from(container.children).forEach(child => {
+                if(child.classList.contains('empty-state')) return;
+                child.style.display = child.dataset.search.includes(term) ? 'block' : 'none';
+            });
+        });
+    }
   }
 
   // 3. Add Form View
@@ -318,6 +356,7 @@ class App {
        document.getElementById('place-name').value = editData.name;
        document.getElementById('place-address').value = editData.address || '';
        document.getElementById('place-phone').value = editData.phone || '';
+       document.getElementById('place-tags').value = editData.tags ? editData.tags.join(', ') : '';
        document.getElementById('place-notes').value = editData.notes || '';
        if(editData.lat !== null) document.getElementById('place-lat').value = editData.lat;
        if(editData.lng !== null) document.getElementById('place-lng').value = editData.lng;
@@ -381,10 +420,14 @@ class App {
       let parsedLat = parseFloat(lat);
       let parsedLng = parseFloat(lng);
 
+      let tagsStr = document.getElementById('place-tags').value || '';
+      let tags = tagsStr.split(',').map(t => t.trim()).filter(Boolean);
+
       const data = {
         name: document.getElementById('place-name').value,
         address: address,
         phone: document.getElementById('place-phone').value,
+        tags: tags,
         notes: document.getElementById('place-notes').value,
         lat: isNaN(parsedLat) ? null : parsedLat,
         lng: isNaN(parsedLng) ? null : parsedLng,
