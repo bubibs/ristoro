@@ -1,0 +1,62 @@
+// Firebase DB (Usando Firebase v10 Compat per supporto immediato su file:// locale)
+
+// ==========================================
+// 🔴 INSERISCI QUI I TUOI DATI FIREBASE 🔴
+// ==========================================
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT",
+  storageBucket: "YOUR_PROJECT.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:12345:web:abcde"
+};
+
+// ==========================================
+// LOGICA DI FALLBACK (Per test locale)
+// ==========================================
+const isConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+let db = null;
+
+if (isConfigured) {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  console.log("🔥 Firebase Inizializzato correttamente!");
+} else {
+  console.warn("⚠️ Firebase NON configurato. Usiamo il LocalStorage!");
+}
+
+// Interfaccia Database Esportata a livello Globale (window.DB)
+window.DB = {
+  async getPlaces(type) {
+    if (isConfigured) {
+      const querySnapshot = await db.collection(type).get();
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } else {
+      return JSON.parse(localStorage.getItem(`tecnosistem_places_${type}`) || '[]');
+    }
+  },
+
+  async addPlace(type, data) {
+    if (isConfigured) {
+      const docRef = await db.collection(type).add(data);
+      return docRef.id;
+    } else {
+      const places = await this.getPlaces(type);
+      const newPlace = { id: Date.now().toString(), ...data };
+      places.push(newPlace);
+      localStorage.setItem(`tecnosistem_places_${type}`, JSON.stringify(places));
+      return newPlace.id;
+    }
+  },
+
+  async deletePlace(type, id) {
+    if (isConfigured) {
+      await db.collection(type).doc(id).delete();
+    } else {
+      let places = await this.getPlaces(type);
+      places = places.filter(p => p.id !== id);
+      localStorage.setItem(`tecnosistem_places_${type}`, JSON.stringify(places));
+    }
+  }
+};
