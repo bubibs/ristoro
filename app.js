@@ -79,14 +79,14 @@ class App {
     });
   }
 
-  async navigate(view, subView = null) {
+  async navigate(view, subView = null, placeData = null) {
     const content = document.getElementById('app-content');
     content.innerHTML = ''; // Clear current
     
     // Basic Routing
-    if (subView === 'add') {
-      this.currentView = `${view}-add`;
-      await this.renderForm(view);
+    if (subView === 'add' || subView === 'edit') {
+      this.currentView = `${view}-${subView}`;
+      await this.renderForm(view, placeData);
     } else if (view === 'home') {
       this.currentView = 'home';
       this.updateNavState('home');
@@ -252,7 +252,7 @@ class App {
       el.className = 'list-item';
       
       let ratingHtml = '';
-      if (type === 'restaurants' && p.rating) {
+      if ((type === 'restaurants' || type === 'hotels') && p.rating) {
         ratingHtml = `<div style="color:var(--color-accent); font-size:1.2rem;">${'★'.repeat(p.rating)}${'☆'.repeat(5-p.rating)}</div>`;
       }
 
@@ -266,9 +266,14 @@ class App {
         
         <div class="list-item-actions">
           ${navHtml}
-          <button class="btn btn-icon delete-btn" data-id="${p.id}" style="color:#d9534f; border-color:#d9534f; flex:none;">Elimina</button>
+          <button class="btn btn-icon edit-btn" data-id="${p.id}" style="color:var(--color-primary); flex:none;">✏️ Modifica</button>
+          <button class="btn btn-icon delete-btn" data-id="${p.id}" style="color:#d9534f; border-color:#d9534f; flex:none;">🗑️ Elimina</button>
         </div>
       `;
+
+      el.querySelector('.edit-btn').onclick = () => {
+         this.navigate(type, 'edit', p);
+      };
 
       el.querySelector('.delete-btn').onclick = async () => {
         if (confirm("Sei sicuro di voler eliminare questo luogo?")) {
@@ -282,15 +287,29 @@ class App {
   }
 
   // 3. Add Form View
-  async renderForm(type) {
+  async renderForm(type, editData = null) {
     const tmpl = document.getElementById('tmpl-form').content.cloneNode(true);
     document.getElementById('app-content').appendChild(tmpl);
     
-    document.getElementById('form-title').innerText = `Aggiungi ${this.placeTypes[type].split(' ')[0]}`;
+    document.getElementById('form-title').innerText = editData ? `Modifica ${this.placeTypes[type].split(' ')[0]}` : `Aggiungi ${this.placeTypes[type].split(' ')[0]}`;
     document.getElementById('place-type').value = type;
 
-    if (type === 'restaurants') {
+    if (type === 'restaurants' || type === 'hotels') {
       document.getElementById('rating-group').style.display = 'block';
+    }
+    
+    if (editData) {
+       document.getElementById('place-id').value = editData.id;
+       document.getElementById('place-name').value = editData.name;
+       document.getElementById('place-address').value = editData.address || '';
+       document.getElementById('place-notes').value = editData.notes || '';
+       if(editData.lat !== null) document.getElementById('place-lat').value = editData.lat;
+       if(editData.lng !== null) document.getElementById('place-lng').value = editData.lng;
+       
+       if (editData.rating && (type === 'restaurants' || type === 'hotels')) {
+          const rEl = document.querySelector(`input[name="rating"][value="${editData.rating}"]`);
+          if(rEl) rEl.checked = true;
+       }
     }
 
     // GPS Button Logic
@@ -355,12 +374,18 @@ class App {
         createdAt: new Date().toISOString()
       };
 
-      if (type === 'restaurants') {
+      if (type === 'restaurants' || type === 'hotels') {
         const ratingEl = document.querySelector('input[name="rating"]:checked');
         data.rating = ratingEl ? parseInt(ratingEl.value) : 0;
       }
 
-      await DB.addPlace(type, data);
+      const placeId = document.getElementById('place-id').value;
+      if (placeId) {
+          await DB.updatePlace(type, placeId, data);
+      } else {
+          await DB.addPlace(type, data);
+      }
+
       this.navigate(type); // Go back to list
     });
   }

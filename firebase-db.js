@@ -58,5 +58,15 @@ window.DB = {
       places = places.filter(p => p.id !== id);
       localStorage.setItem(`tecnosistem_places_${type}`, JSON.stringify(places));
     }
+  },
+
+  async updatePlace(type, id, data) {
+    if (isConfigured) {
+      await db.collection(type).doc(id).update(data);
+    } else {
+      let places = await this.getPlaces(type);
+      places = places.map(p => p.id === id ? { ...p, ...data } : p);
+      localStorage.setItem(`tecnosistem_places_${type}`, JSON.stringify(places));
+    }
   }
 };
