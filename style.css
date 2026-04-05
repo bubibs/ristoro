@@ -304,18 +304,19 @@ body {
 
 .list-item-actions {
   display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: center;
-  gap: 10px;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: 15px;
   border-top: 1px solid var(--border-color);
   padding-top: 15px;
 }
 
 .list-item-actions .btn {
-  width: 100%;
-  margin: 0;
+  width: auto;
+  flex: 1;
+  padding: 12px 0;
+  font-size: 1.2rem; /* Emojis will be slightly larger */
 }
 
 /* Forms */
@@ -338,6 +339,7 @@ body {
 }
 
 .form-group input[type="text"],
+.form-group input[type="tel"],
 .form-group textarea {
   width: 100%;
   padding: 12px;

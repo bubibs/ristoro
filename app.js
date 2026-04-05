@@ -258,8 +258,8 @@ class App {
       }
 
       let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
-      let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank">📍 Naviga</a>`;
-      let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}">📞 Chiama</a>` : '';
+      let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga">📍</a>`;
+      let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama">📞</a>` : '';
 
       el.innerHTML = `
         <div class="list-item-title">${p.name} ${ratingHtml}</div>
@@ -269,9 +269,9 @@ class App {
         <div class="list-item-actions">
           ${navHtml}
           ${callHtml}
-          <button class="btn btn-icon share-btn" data-id="${p.id}" style="color:#25D366; border-color:#25D366;">📤 Condividi</button>
-          <button class="btn btn-icon edit-btn" data-id="${p.id}" style="color:var(--color-primary);">✏️ Modifica</button>
-          <button class="btn btn-icon delete-btn" data-id="${p.id}" style="color:#d9534f; border-color:#d9534f;">🗑️ Elimina</button>
+          <button class="btn btn-icon share-btn" data-id="${p.id}" style="color:#25D366; border-color:#25D366;" title="Condividi">📤</button>
+          <button class="btn btn-icon edit-btn" data-id="${p.id}" style="color:var(--color-primary);" title="Modifica">✏️</button>
+          <button class="btn btn-icon delete-btn" data-id="${p.id}" style="color:#d9534f; border-color:#d9534f;" title="Elimina">🗑️</button>
         </div>
       `;
       
