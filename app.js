@@ -305,40 +305,47 @@ class App {
       
       let hotels = await DB.getPlaces('hotels');
       let rests = await DB.getPlaces('restaurants');
-      let combined = hotels.map(h=>({...h, _type: 'hotels'})).concat(rests.map(r=>({...r, _type: 'restaurants'})));
       
-      combined.forEach(p => {
-         if(p.lat && p.lng) {
-             p._dist = parseFloat(getDistance(target.lat, target.lng, p.lat, p.lng));
-         } else {
-             p._dist = Infinity;
-         }
-      });
-      
-      combined.sort((a,b) => a._dist - b._dist);
-      
-      combined.forEach(p => {
-          if (p._dist === Infinity) return;
-          const el = document.createElement('div');
-          el.className = 'list-item';
-          const icon = p._type === 'hotels' ? '🏨' : '🍽️';
-          
-          let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
-          let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga" style="padding:10px;">📍 Avvia Navigazione</a>`;
-          let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama" style="padding:10px;">📞</a>` : '';
-          
-          el.innerHTML = `
-              <div class="list-item-title" style="display:flex; align-items:center; margin-bottom:5px;">
-                 ${icon} ${p.name} 
-                 <span style="color:var(--color-primary); font-weight:bold; font-size:0.85rem; margin-left:auto;">🚗 ~${p._dist} km</span>
-              </div>
-              <div class="list-item-addr">${p.address || ''}</div>
-              <div class="list-item-actions" style="margin-top:10px; flex-direction:row; justify-content: flex-start; gap:10px;">
-                 ${navHtml} ${callHtml}
-              </div>
-          `;
-          listContainer.appendChild(el);
-      });
+      const calcDist = (place) => {
+          if(place.lat && place.lng) {
+             place._dist = parseFloat(getDistance(target.lat, target.lng, place.lat, place.lng));
+          } else {
+             place._dist = Infinity;
+          }
+          return place;
+      };
+
+      hotels = hotels.map(calcDist).filter(p => p._dist !== Infinity).sort((a,b) => a._dist - b._dist);
+      rests = rests.map(calcDist).filter(p => p._dist !== Infinity).sort((a,b) => a._dist - b._dist);
+
+      const buildHtml = (places, icon, title) => {
+          if(places.length === 0) return '';
+          let html = `<h4 style="margin-top:15px; margin-bottom:10px; color:var(--text-main); font-size:1.1rem;">${icon}  ${title} Più Vicini</h4>`;
+          places.forEach(p => {
+              let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
+              let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga" style="padding:10px;">📍 Naviga</a>`;
+              let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama" style="padding:10px;">📞</a>` : '';
+              
+              html += `
+                  <div class="list-item">
+                      <div class="list-item-title" style="display:flex; align-items:center; margin-bottom:5px;">
+                         ${p.name} 
+                         <span style="color:var(--color-primary); font-weight:bold; font-size:0.85rem; margin-left:auto;">🚗 ~${p._dist} km</span>
+                      </div>
+                      <div class="list-item-addr">${p.address || ''}</div>
+                      <div class="list-item-actions" style="margin-top:10px; flex-direction:row; justify-content: flex-start; gap:10px;">
+                         ${navHtml} ${callHtml}
+                      </div>
+                  </div>
+              `;
+          });
+          return html;
+      };
+
+      listContainer.innerHTML = buildHtml(hotels, '🏨', 'Hotel') + buildHtml(rests, '🍽️', 'Ristoranti');
+      if (listContainer.innerHTML === '') {
+          listContainer.innerHTML = '<div class="empty-state">Nessuna struttura trovata con coordinate GPS valide. Usa il tasto 📍 per l\'indirizzo quando le crei!</div>';
+      }
   }
 
   // 2. List View (Work, Hotels, Restaurants)
