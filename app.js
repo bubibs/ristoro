@@ -24,6 +24,7 @@ class App {
 
   // --- Theme ---
   setupTheme() {
+    const toggle = document.getElementById('theme-toggle');
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     let isDark = localStorage.getItem('theme') ? localStorage.getItem('theme') === 'dark' : mediaQuery.matches;
     
