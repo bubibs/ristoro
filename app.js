@@ -221,8 +221,9 @@ class App {
             <div style="text-align:center;">
               <b style="font-size:1.1rem; color:var(--color-primary);">${p.name}</b><br>
               <span style="color:gray; font-size: 0.9rem;">${p.address || ''}</span><br>
-              <a class="btn btn-primary btn-block" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" style="margin-top:10px; font-size:0.9rem;">
-                📍 Naviga su Apple Maps
+              ${p.phone ? `<a class="btn btn-accent btn-block" href="tel:${p.phone}" style="margin-top:10px; font-size:0.9rem; margin-bottom: 5px;">📞 Chiama</a>` : ''}
+              <a class="btn btn-primary btn-block" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" style="margin-top:5px; font-size:0.9rem;">
+                📍 Naviga
               </a>
             </div>
           `);
@@ -257,19 +258,33 @@ class App {
       }
 
       let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
-      let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank">📍 Avvia Navigatore</a>`;
+      let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank">📍 Naviga</a>`;
+      let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}">📞 Chiama</a>` : '';
 
       el.innerHTML = `
         <div class="list-item-title">${p.name} ${ratingHtml}</div>
-        <div class="list-item-addr">${p.address || 'Posizione GPS'}</div>
+        <div class="list-item-addr">${p.address || 'Posizione GPS'}${p.phone ? ` <br><span style="color:var(--text-main);">📞 ${p.phone}</span>` : ''}</div>
         ${p.notes ? ` <div style="font-size:0.8rem; color:var(--text-muted);">${p.notes}</div>` : ''}
         
         <div class="list-item-actions">
           ${navHtml}
-          <button class="btn btn-icon edit-btn" data-id="${p.id}" style="color:var(--color-primary); flex:none;">✏️ Modifica</button>
-          <button class="btn btn-icon delete-btn" data-id="${p.id}" style="color:#d9534f; border-color:#d9534f; flex:none;">🗑️ Elimina</button>
+          ${callHtml}
+          <button class="btn btn-icon share-btn" data-id="${p.id}" style="color:#25D366; border-color:#25D366;">📤 Condividi</button>
+          <button class="btn btn-icon edit-btn" data-id="${p.id}" style="color:var(--color-primary);">✏️ Modifica</button>
+          <button class="btn btn-icon delete-btn" data-id="${p.id}" style="color:#d9534f; border-color:#d9534f;">🗑️ Elimina</button>
         </div>
       `;
+      
+      el.querySelector('.share-btn').onclick = async () => {
+         const textContent = `📍 ${p.name}\nIndirizzo: ${p.address || ''}\n${p.phone ? `Tel: ${p.phone}\n` : ''}Naviga: http://maps.apple.com/?daddr=${daddr}`;
+         if (navigator.share) {
+             try { await navigator.share({ title: p.name, text: textContent }); }
+             catch(err) { console.error(err); }
+         } else {
+             // Fallback per Desktop/incompatibilità
+             window.open(`https://wa.me/?text=${encodeURIComponent(textContent)}`, '_blank');
+         }
+      };
 
       el.querySelector('.edit-btn').onclick = () => {
          this.navigate(type, 'edit', p);
@@ -302,6 +317,7 @@ class App {
        document.getElementById('place-id').value = editData.id;
        document.getElementById('place-name').value = editData.name;
        document.getElementById('place-address').value = editData.address || '';
+       document.getElementById('place-phone').value = editData.phone || '';
        document.getElementById('place-notes').value = editData.notes || '';
        if(editData.lat !== null) document.getElementById('place-lat').value = editData.lat;
        if(editData.lng !== null) document.getElementById('place-lng').value = editData.lng;
@@ -368,6 +384,7 @@ class App {
       const data = {
         name: document.getElementById('place-name').value,
         address: address,
+        phone: document.getElementById('place-phone').value,
         notes: document.getElementById('place-notes').value,
         lat: isNaN(parsedLat) ? null : parsedLat,
         lng: isNaN(parsedLng) ? null : parsedLng,

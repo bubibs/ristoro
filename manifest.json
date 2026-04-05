@@ -1,0 +1,22 @@
+{
+  "name": "TECNOSISTEM Trasferte",
+  "short_name": "Tecnosistem",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#003366",
+  "theme_color": "#003366",
+  "orientation": "portrait",
+  "description": "App gestionale trasferte per TECNOSISTEM o dipendenti",
+  "icons": [
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdib3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI0Q0QUYzNyIgZD0iTTEyIDJMMSAyMWgyMmwtMTEtMTl6bTAgMy44bDcuNSA4SDQuNWw3LjUtOHoiLz48L3N2Zz4=",
+      "sizes": "192x192",
+      "type": "image/svg+xml"
+    },
+    {
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdib3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iI0Q0QUYzNyIgZD0iTTEyIDJMMSAyMWgyMmwtMTEtMTl6bTAgMy44bDcuNSA4SDQuNWw3LjUtOHoiLz48L3N2Zz4=",
+      "sizes": "512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
