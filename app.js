@@ -146,7 +146,7 @@ class App {
   }
 
   async initLocationAndMap() {
-    const locText = document.getElementById('current-location-text');
+    const locText = document.getElementById('current-address');
     
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
