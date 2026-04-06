@@ -117,6 +117,8 @@ class App {
       if (this.customSearchTarget) {
           const tEl = document.getElementById('home-target-title');
           if(tEl) tEl.innerText = "Centro Ricerca: " + this.customSearchTarget.name;
+          const rBtn = document.getElementById('home-reset-target');
+          if(rBtn) rBtn.style.display = 'block';
           this.loadMapMarkers();
       }
     } else {
@@ -278,6 +280,8 @@ class App {
                  name: data[0].display_name.split(',')[0]
              };
              if(titleEl) titleEl.innerText = "Centro spostato a: " + this.customSearchTarget.name;
+             const rBtn = document.getElementById('home-reset-target');
+             if(rBtn) rBtn.style.display = 'block';
              this.loadMapMarkers();
          } else {
              if(titleEl) titleEl.innerText = "Nessun risultato trovato.";
@@ -285,6 +289,20 @@ class App {
      } catch(e) {
          if(titleEl) titleEl.innerText = "Errore di rete.";
      }
+  }
+
+  resetTargetToCurrent() {
+      this.customSearchTarget = null;
+      const titleEl = document.getElementById('home-target-title');
+      if (titleEl) titleEl.innerText = "";
+      const searchIn = document.getElementById('home-target-search');
+      if (searchIn) searchIn.value = '';
+      const rBtn = document.getElementById('home-reset-target');
+      if (rBtn) rBtn.style.display = 'none';
+      if (this.currentLocation) {
+          this.initMap(this.currentLocation.lat, this.currentLocation.lng);
+      }
+      this.loadMapMarkers();
   }
 
   setCustomTargetAndGoHome(lat, lng, name) {
