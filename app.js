@@ -119,6 +119,7 @@ class App {
           if(tEl) tEl.innerText = "Centro Ricerca: " + this.customSearchTarget.name;
           const rBtn = document.getElementById('home-reset-target');
           if(rBtn) rBtn.style.display = 'block';
+          this.initMap(this.customSearchTarget.lat, this.customSearchTarget.lng, true);
           this.loadMapMarkers();
       }
     } else {
@@ -177,15 +178,21 @@ class App {
              console.error("Reverse geocoding err", e);
              locText.innerText = `${this.currentLocation.lat.toFixed(4)}, ${this.currentLocation.lng.toFixed(4)}`;
           }
-          
-          this.initMap(this.currentLocation.lat, this.currentLocation.lng);
+          if (!this.customSearchTarget) {
+              this.initMap(this.currentLocation.lat, this.currentLocation.lng);
+          } else {
+              this.initMap(this.customSearchTarget.lat, this.customSearchTarget.lng, true);
+          }
           this.loadMapMarkers();
         },
         (error) => {
           console.error(error);
           locText.innerText = "GPS Offline. Posizione di Default (Roma).";
-          this.currentLocation = { lat: 41.9028, lng: 12.4964 };
-          this.initMap(41.9028, 12.4964);
+          if (!this.customSearchTarget) {
+             this.initMap(41.9028, 12.4964);
+          } else {
+             this.initMap(this.customSearchTarget.lat, this.customSearchTarget.lng, true);
+          }
           this.loadMapMarkers();
         },
         { enableHighAccuracy: true, timeout: 5000 }
@@ -198,7 +205,7 @@ class App {
     }
   }
 
-  initMap(lat, lng) {
+  initMap(lat, lng, isCustomTarget = false) {
     if (this.map) {
       this.map.off();
       this.map.remove();
@@ -218,12 +225,14 @@ class App {
     }).addTo(this.map);
 
     // Current position marker
+    let markerColor = isCustomTarget ? '#d9534f' : '#D4AF37';
+    let popupText = isCustomTarget ? "<b>Centro Ricerca</b>" : "<b>La tua posizione</b>";
     L.circleMarker([lat, lng], {
-      color: '#D4AF37',
-      fillColor: '#003366',
+      color: markerColor,
+      fillColor: isCustomTarget ? '#c9302c' : '#003366',
       fillOpacity: 1,
       radius: 8
-    }).addTo(this.map).bindPopup("<b>La tua posizione</b>").openPopup();
+    }).addTo(this.map).bindPopup(popupText).openPopup();
   }
 
   async loadMapMarkers() {
@@ -282,6 +291,7 @@ class App {
              if(titleEl) titleEl.innerText = "Centro spostato a: " + this.customSearchTarget.name;
              const rBtn = document.getElementById('home-reset-target');
              if(rBtn) rBtn.style.display = 'block';
+             this.initMap(this.customSearchTarget.lat, this.customSearchTarget.lng, true);
              this.loadMapMarkers();
          } else {
              if(titleEl) titleEl.innerText = "Nessun risultato trovato.";
@@ -391,6 +401,23 @@ class App {
         ratingHtml = `<div style="color:var(--color-accent); font-size:1.2rem;">${'★'.repeat(p.rating)}${'☆'.repeat(5-p.rating)}</div>`;
       }
 
+      el.dataset.search = `${p.name} ${p.address} ${p.notes || ''}`.toLowerCase();
+      
+      let amenitiesHtml = '';
+      if (type === 'hotels' && p.amenities) {
+         let ams = [];
+         if(p.amenities.dinner) ams.push('🍽️ Cene');
+         if(p.amenities.elevator) ams.push('🛗 Ascensore');
+         if(p.amenities.pool) ams.push('🏊 Piscina');
+         if(p.amenities.gym) ams.push('🏋️ Palestra');
+         if(p.amenities.bar) ams.push('🍸 Bar');
+         if(p.amenities.parking) ams.push('🅿️ Parcheggio');
+         if(ams.length > 0) {
+            amenitiesHtml = `<div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:5px; font-size:0.8rem; color:var(--text-muted);">` + ams.map(a => `<span style="background:var(--bg-color); padding:2px 8px; border-radius:12px; border:1px solid var(--border-color);">${a}</span>`).join('') + `</div>`;
+            el.dataset.search += ` ${ams.join(' ')}`.toLowerCase();
+         }
+      }
+
       let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
       let navHtml = `<a class="btn btn-primary" href="https://www.google.com/maps/dir/?api=1&destination=${daddr}" target="_blank" title="Naviga">📍</a>`;
       let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama">📞</a>` : '';
@@ -407,11 +434,10 @@ class App {
          findNearbyHtml = `<button class="btn btn-icon find-nearby-btn" data-id="${p.id}" style="color:var(--color-accent); border-color:var(--color-accent);" title="Trova Vicinanze">🔎</button>`;
       }
 
-      el.dataset.search = `${p.name} ${p.address} ${p.notes || ''}`.toLowerCase();
-
       el.innerHTML = `
         <div class="list-item-title" style="display:flex; align-items:center;">${p.name} ${ratingHtml} ${distanceHtml}</div>
         <div class="list-item-addr">${p.address || 'Posizione GPS'}${p.phone ? ` <br><span style="color:var(--text-main);">📞 ${p.phone}</span>` : ''}</div>
+        ${amenitiesHtml}
         ${p.notes ? ` <div style="font-size:0.8rem; color:var(--text-muted); margin-top:8px;">${p.notes}</div>` : ''}
         
         <div class="list-item-actions">
@@ -478,6 +504,18 @@ class App {
 
     if (type === 'restaurants' || type === 'hotels') {
       document.getElementById('rating-group').style.display = 'block';
+    }
+    const amGroup = document.getElementById('amenities-group');
+    if (amGroup) {
+        amGroup.style.display = (type === 'hotels') ? 'block' : 'none';
+        if (type === 'hotels') {
+            document.getElementById('am_dinner').checked = editData && editData.amenities && editData.amenities.dinner || false;
+            document.getElementById('am_elevator').checked = editData && editData.amenities && editData.amenities.elevator || false;
+            document.getElementById('am_pool').checked = editData && editData.amenities && editData.amenities.pool || false;
+            document.getElementById('am_gym').checked = editData && editData.amenities && editData.amenities.gym || false;
+            document.getElementById('am_bar').checked = editData && editData.amenities && editData.amenities.bar || false;
+            document.getElementById('am_parking').checked = editData && editData.amenities && editData.amenities.parking || false;
+        }
     }
     
     if (editData) {
@@ -561,6 +599,17 @@ class App {
       if (type === 'restaurants' || type === 'hotels') {
         const ratingEl = document.querySelector('input[name="rating"]:checked');
         data.rating = ratingEl ? parseInt(ratingEl.value) : 0;
+      }
+      
+      if (type === 'hotels') {
+         data.amenities = {
+            dinner: document.getElementById('am_dinner').checked,
+            elevator: document.getElementById('am_elevator').checked,
+            pool: document.getElementById('am_pool').checked,
+            gym: document.getElementById('am_gym').checked,
+            bar: document.getElementById('am_bar').checked,
+            parking: document.getElementById('am_parking').checked
+         };
       }
 
       const placeId = document.getElementById('place-id').value;
