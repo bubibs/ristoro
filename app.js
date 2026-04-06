@@ -33,7 +33,24 @@ class App {
   async init() {
     this.setupTheme();
     this.setupNav();
+    this.checkSyncStatus();
     await this.navigate('home');
+  }
+
+  checkSyncStatus() {
+    const syncEl = document.getElementById('sync-status');
+    if(syncEl) {
+        // Verifica variabile esposta da firebase-db.js "isConfigured"
+        const isFirebaseOk = (window.DB && window.firebaseConfig && window.firebaseConfig.apiKey !== "YOUR_API_KEY");
+        if(isFirebaseOk) {
+            syncEl.innerHTML = "🟢 <span style='font-size:0.7rem;'>Cloud</span>";
+            syncEl.title = "Sincronizzato online con Firebase";
+        } else {
+            syncEl.innerHTML = "🏢 <span style='font-size:0.7rem;'>Locale</span>";
+            syncEl.title = "Salvataggio sul telefono. Configura Firebase per sincronizzare.";
+            syncEl.onclick = () => window.showToast("Modifica firebase-db.js per collegare i dati al Cloud!", true);
+        }
+    }
   }
 
   // --- Theme ---
@@ -474,6 +491,7 @@ class App {
       el.querySelector('.delete-btn').onclick = async () => {
         if (confirm("Sei sicuro di voler eliminare questo luogo?")) {
            await DB.deletePlace(type, p.id);
+           window.showToast("Luogo eliminato.");
            this.renderList(type); // Re-render
         }
       };
@@ -615,14 +633,35 @@ class App {
       const placeId = document.getElementById('place-id').value;
       if (placeId) {
           await DB.updatePlace(type, placeId, data);
+          window.showToast("Modifiche salvate!");
       } else {
           await DB.addPlace(type, data);
+          window.showToast("Nuovo luogo aggiunto!");
       }
 
       this.navigate(type); // Go back to list
     });
   }
 }
+
+// Toast Functionality Globale
+window.showToast = function(msg, isError = false) {
+  let container = document.getElementById('toast-container');
+  if(!container) {
+     container = document.createElement('div');
+     container.id = 'toast-container';
+     document.body.appendChild(container);
+  }
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = (isError ? '❌ ' : '✅ ') + msg;
+  if(isError) toast.style.borderLeftColor = '#d9534f';
+  container.appendChild(toast);
+  setTimeout(() => {
+     toast.style.animation = 'toastFadeOut 0.3s ease-in forwards';
+     setTimeout(() => toast.remove(), 300);
+  }, 2500);
+};
 
 // Init App
 window.addEventListener('DOMContentLoaded', () => {

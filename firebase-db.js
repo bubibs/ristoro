@@ -3,7 +3,7 @@
 // ==========================================
 // 🔴 INSERISCI QUI I TUOI DATI FIREBASE 🔴
 // ==========================================
-const firebaseConfig = {
+window.firebaseConfig = {
   apiKey: "YOUR_API_KEY",
   authDomain: "YOUR_PROJECT.firebaseapp.com",
   projectId: "YOUR_PROJECT",
@@ -15,11 +15,11 @@ const firebaseConfig = {
 // ==========================================
 // LOGICA DI FALLBACK (Per test locale)
 // ==========================================
-const isConfigured = firebaseConfig.apiKey !== "YOUR_API_KEY";
+const isConfigured = window.firebaseConfig.apiKey !== "YOUR_API_KEY";
 let db = null;
 
 if (isConfigured) {
-  firebase.initializeApp(firebaseConfig);
+  firebase.initializeApp(window.firebaseConfig);
   db = firebase.firestore();
   console.log("🔥 Firebase Inizializzato correttamente!");
 } else {
