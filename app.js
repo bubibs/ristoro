@@ -254,7 +254,7 @@ class App {
               <b style="font-size:1.1rem; color:var(--color-primary);">${p.name}</b><br>
               <span style="color:gray; font-size: 0.9rem;">${p.address || ''}</span><br>
               ${p.phone ? `<a class="btn btn-accent btn-block" href="tel:${p.phone}" style="margin-top:10px; font-size:0.9rem; margin-bottom: 5px;">📞 Chiama</a>` : ''}
-              <a class="btn btn-primary btn-block" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" style="margin-top:5px; font-size:0.9rem;">
+              <a class="btn btn-primary btn-block" href="https://www.google.com/maps/dir/?api=1&destination=${daddr}" target="_blank" style="margin-top:5px; font-size:0.9rem;">
                 📍 Naviga
               </a>
             </div>
@@ -323,7 +323,7 @@ class App {
           let html = `<h4 style="margin-top:15px; margin-bottom:10px; color:var(--text-main); font-size:1.1rem;">${icon}  ${title} Più Vicini</h4>`;
           places.forEach(p => {
               let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
-              let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga" style="padding:10px;">📍 Naviga</a>`;
+              let navHtml = `<a class="btn btn-primary" href="https://www.google.com/maps/dir/?api=1&destination=${daddr}" target="_blank" title="Naviga" style="padding:10px;">📍 Naviga</a>`;
               let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama" style="padding:10px;">📞</a>` : '';
               
               html += `
@@ -374,7 +374,7 @@ class App {
       }
 
       let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
-      let navHtml = `<a class="btn btn-primary" href="http://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga">📍</a>`;
+      let navHtml = `<a class="btn btn-primary" href="https://www.google.com/maps/dir/?api=1&destination=${daddr}" target="_blank" title="Naviga">📍</a>`;
       let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama">📞</a>` : '';
       
       let distanceTarget = this.customSearchTarget || this.currentLocation;
@@ -407,7 +407,7 @@ class App {
       `;
       
       el.querySelector('.share-btn').onclick = async () => {
-         const textContent = `📍 ${p.name}\nIndirizzo: ${p.address || ''}\n${p.phone ? `Tel: ${p.phone}\n` : ''}Naviga: http://maps.apple.com/?daddr=${daddr}`;
+         const textContent = `📍 ${p.name}\nIndirizzo: ${p.address || ''}\n${p.phone ? `Tel: ${p.phone}\n` : ''}Naviga: https://www.google.com/maps/dir/?api=1&destination=${daddr}`;
          if (navigator.share) {
              try { await navigator.share({ title: p.name, text: textContent }); }
              catch(err) { console.error(err); }
