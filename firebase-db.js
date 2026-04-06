@@ -4,12 +4,13 @@
 // 🔴 INSERISCI QUI I TUOI DATI FIREBASE 🔴
 // ==========================================
 window.firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT",
-  storageBucket: "YOUR_PROJECT.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:12345:web:abcde"
+  apiKey: "AIzaSyBhxYec74MB6cd4rgMZe46boUajo5FiXlY",
+  authDomain: "ristoro-99403.firebaseapp.com",
+  projectId: "ristoro-99403",
+  storageBucket: "ristoro-99403.firebasestorage.app",
+  messagingSenderId: "365616992371",
+  appId: "1:365616992371:web:f56c94437dc0dcc5e99a06",
+  measurementId: "G-X2CRYNPEHQ"
 };
 
 // ==========================================
