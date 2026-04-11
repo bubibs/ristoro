@@ -423,7 +423,7 @@ class App {
       let amenitiesHtml = '';
       if (type === 'hotels' && p.amenities) {
          let ams = [];
-         if(p.amenities.dinner) ams.push('🍽️ Cene');
+         if(p.amenities.dinner) ams.push('🍽️ Cena');
          if(p.amenities.elevator) ams.push('🛗 Ascensore');
          if(p.amenities.pool) ams.push('🏊 Piscina');
          if(p.amenities.gym) ams.push('🏋️ Palestra');
@@ -571,6 +571,72 @@ class App {
         },
         { enableHighAccuracy: true }
       );
+    });
+    
+    // Auto-fill from URL Logic
+    document.getElementById('fetch-data-btn').addEventListener('click', async () => {
+        const url = document.getElementById('place-website-url').value.trim();
+        if (!url) return window.showToast("Inserisci un link prima!", true);
+        
+        const btn = document.getElementById('fetch-data-btn');
+        const originalText = btn.innerText;
+        btn.innerText = "⏳ Lettura...";
+        btn.disabled = true;
+        
+        try {
+            // Usa AllOrigins proxy per bypassare CORS
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+            const response = await fetch(proxyUrl);
+            const data = await response.json();
+            
+            if (!data || !data.contents) throw new Error("Impossibile leggere il sito");
+            
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(data.contents, 'text/html');
+            
+            // 1. Estrai Nome
+            let name = "";
+            const ogTitle = doc.querySelector('meta[property="og:title"]');
+            const title = doc.querySelector('title');
+            const h1 = doc.querySelector('h1');
+            
+            if (ogTitle) name = ogTitle.getAttribute('content');
+            else if (title) name = title.innerText;
+            else if (h1) name = h1.innerText;
+            
+            if (name) {
+                // Pulisci nome (spesso i siti hanno anche il titolo del sito nel title tag)
+                name = name.split('|')[0].split('-')[0].trim();
+                document.getElementById('place-name').value = name;
+            }
+            
+            // 2. Estrai Telefono (cerca link tel: o pattern regex)
+            let phone = "";
+            const telLink = doc.querySelector('a[href^="tel:"]');
+            if (telLink) {
+                phone = telLink.getAttribute('href').replace('tel:', '').trim();
+            } else {
+                // Regex per numeri italiani generici
+                const phoneMatch = data.contents.match(/(\+39|0039)?[\s-]?\d{2,4}[\s-]?\d{6,8}/);
+                if (phoneMatch) phone = phoneMatch[0].trim();
+            }
+            if (phone) document.getElementById('place-phone').value = phone;
+            
+            // 3. Estrai Note o Indirizzo (molto semplificato)
+            // Cerca tag <address> o testi comuni
+            const addrEl = doc.querySelector('address');
+            if (addrEl) {
+                document.getElementById('place-address').value = addrEl.innerText.trim().replace(/\s+/g, ' ');
+            }
+            
+            window.showToast("Dati recuperati! Controllali prima di salvare.");
+        } catch (err) {
+            console.error(err);
+            window.showToast("Impossibile recuperare i dati da questo sito.", true);
+        } finally {
+            btn.innerText = originalText;
+            btn.disabled = false;
+        }
     });
 
     // Form Submit

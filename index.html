@@ -114,6 +114,15 @@
         <input type="hidden" id="place-lat" name="lat">
         <input type="hidden" id="place-lng" name="lng">
         
+        <div class="form-group" id="url-fetch-group">
+          <label>🪄 Recupero Automatico (opzionale)</label>
+          <div class="address-input-group">
+             <input type="url" id="place-website-url" placeholder="Incolla il link del sito web qui...">
+             <button type="button" class="btn btn-accent" id="fetch-data-btn" style="min-width: 120px; font-size: 0.85rem;" title="Recupera dati dal sito">✨ Recupera</button>
+          </div>
+          <small style="color:var(--text-muted); font-size:0.75rem;">Suggerimento: Incolla il sito del ristorante/hotel e clicca Recupera!</small>
+        </div>
+        
         <div class="form-group">
           <label>Nome Luogo</label>
           <input type="text" id="place-name" name="name" required placeholder="Es. Cantiere Alpha o Ristorante Da Mario">
@@ -145,9 +154,9 @@
 
         <div class="form-group" id="amenities-group" style="display:none;">
           <label>Servizi Hotel (Opzionale)</label>
-          <div class="amenities-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-             <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input type="checkbox" id="am_dinner"> Cene</label>
-             <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input type="checkbox" id="am_elevator"> Ascensore</label>
+           <div class="amenities-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input type="checkbox" id="am_dinner"> Cena</label>
+              <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input type="checkbox" id="am_elevator"> Ascensore</label>
              <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input type="checkbox" id="am_pool"> Piscina</label>
              <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input type="checkbox" id="am_gym"> Palestra</label>
              <label style="font-weight:normal; display:flex; align-items:center; gap:5px;"><input type="checkbox" id="am_bar"> Bar</label>
