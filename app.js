@@ -588,9 +588,9 @@ class App {
         btn.disabled = true;
         
         const proxies = [
-            (u) => `https://api.corsproxy.io/?url=${encodeURIComponent(u)}`,
-            (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
-            (u) => `https://api.codetabs.com/v1/proxy?url=${encodeURIComponent(u)}`
+            (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+            (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
+            (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`
         ];
 
         let htmlContent = null;
@@ -607,9 +607,9 @@ class App {
                 const response = await fetch(getProxyUrl(url));
                 if (!response.ok) throw new Error("Proxy error");
                 
-                const data = await response.json();
+                const data = await response.json().catch(() => null);
                 // Gestione diversi formati di risposta dei proxy
-                htmlContent = data.contents || data.result || (typeof data === 'string' ? data : null); 
+                htmlContent = data ? (data.contents || data.result || (typeof data === 'string' ? data : null)) : await response.text(); 
                 
                 if (htmlContent && typeof htmlContent === 'string' && htmlContent.length > 200) {
                     console.log(`[Proxy] Successo al tentativo #${attempt}`);
@@ -673,9 +673,19 @@ class App {
             if (telLink) {
                 phone = telLink.getAttribute('href').replace('tel:', '').replace(/\s+/g, '').trim();
             } else {
-                const phoneRegex = /(?:(?:\+39|0039)\s?)?((?:0|3)\d{1,4}\s?[\d\s-]{5,10})/g;
+                // Regex migliorata per telefoni italiani: supporta prefissi, spazi, +39, e numeri fissi/cellulari
+                const phoneRegex = /(?:(?:\+39|0039|[+( ]39[) ]?)\s?)?((?:0\d{1,4}|3\d{2})\s?[\d\s\-.]{5,10})/g;
                 const matches = htmlContent.match(phoneRegex);
-                if (matches) phone = matches[0].replace(/\s+/g, '').trim();
+                if (matches) {
+                    // Prendi il primo match che non sia troppo corto
+                    for(const m of matches) {
+                        let clean = m.replace(/[^\d+]/g, '');
+                        if(clean.length >= 6) {
+                            phone = m.trim();
+                            break;
+                        }
+                    }
+                }
             }
             if (phone) document.getElementById('place-phone').value = phone;
 
@@ -691,8 +701,15 @@ class App {
             
             if (match) {
                 address = match[0].trim();
-            } else if (doc.querySelector('address')) {
-                address = doc.querySelector('address').innerText.trim().replace(/\s+/g, ' ');
+            } else {
+                // Ulteriore tentativo: cerca "Via" o "Piazza" vicino a un CAP
+                const fallbackAddrRegex = /(?:Via|Piazza|Viale|Corso|Largo|Vicolo|Contrada|Loc\.|Località)\s+[A-Z][a-z\s']+,?\s*\d{0,4}?[^,]*?\d{5}\s+[A-Z\s]+/i;
+                const fallbackMatch = text.match(fallbackAddrRegex);
+                if (fallbackMatch) {
+                    address = fallbackMatch[0].trim();
+                } else if (doc.querySelector('address')) {
+                    address = doc.querySelector('address').innerText.trim().replace(/\s+/g, ' ');
+                }
             }
             
             if (address) document.getElementById('place-address').value = address;
