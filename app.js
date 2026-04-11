@@ -599,12 +599,13 @@ class App {
         for (const getProxyUrl of proxies) {
             try {
                 attempt++;
+                let currentUrl = getProxyUrl(url);
                 if(attempt > 1) {
                     btn.innerText = `🔄 Provando #${attempt}...`;
-                    console.log(`[Proxy] Tentativo #${attempt} con ${getProxyUrl(url)}`);
+                    console.log(`[Proxy] Tentativo #${attempt} con ${currentUrl}`);
                 }
                 
-                const response = await fetch(getProxyUrl(url));
+                const response = await fetch(currentUrl);
                 if (!response.ok) throw new Error("Proxy error");
                 
                 const data = await response.json().catch(() => null);
@@ -702,17 +703,31 @@ class App {
             if (match) {
                 address = match[0].trim();
             } else {
-                // Ulteriore tentativo: cerca "Via" o "Piazza" vicino a un CAP
-                const fallbackAddrRegex = /(?:Via|Piazza|Viale|Corso|Largo|Vicolo|Contrada|Loc\.|Località)\s+[A-Z][a-z\s']+,?\s*\d{0,4}?[^,]*?\d{5}\s+[A-Z\s]+/i;
-                const fallbackMatch = text.match(fallbackAddrRegex);
-                if (fallbackMatch) {
-                    address = fallbackMatch[0].trim();
+                // Ulteriore tentativo (più elastico): Cerca Pattern "Via/Piazza ... Numero ... CAP ... Città"
+                // Supporta indirizzi con virgole extra o formati meno rigidi
+                const addressKeywords = "Via|Piazza|Viale|Corso|Largo|Vicolo|Contrada|Loc\\.|Località|Strada|Provinciale|Statale";
+                const flexAddrRegex = new RegExp(`(?:${addressKeywords})\\s+[A-Z][a-z\\s']+,?\\s+\\d{1,4}?[^\\d]*\\d{5}\\s+[A-Z\\s]+`, 'i');
+                const flexMatch = text.match(flexAddrRegex);
+                
+                if (flexMatch) {
+                    address = flexMatch[0].trim();
                 } else if (doc.querySelector('address')) {
                     address = doc.querySelector('address').innerText.trim().replace(/\s+/g, ' ');
+                } else {
+                    // Cerca il CAP (5 cifre) e prendi un po' di testo prima e dopo
+                    const capMatch = text.match(/\d{5}\s+[A-Z\s]{2,}/);
+                    if (capMatch) {
+                        const capIdx = text.indexOf(capMatch[0]);
+                        address = text.substring(Math.max(0, capIdx - 40), capIdx + capMatch[0].length).trim();
+                    }
                 }
             }
             
-            if (address) document.getElementById('place-address').value = address;
+            if (address) {
+                // Pulizia finale indirizzo (rimuove prefissi come "Indirizzo:" o "Sede:")
+                address = address.replace(/^(?:Indirizzo|Sede|Address|Dove siamo|Location):\s*/i, '').trim();
+                document.getElementById('place-address').value = address;
+            }
 
             window.showToast("Dati recuperati! Controlla i campi.");
         } catch (err) {

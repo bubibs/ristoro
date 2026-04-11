@@ -1,9 +1,9 @@
-const CACHE_NAME = 'tecnosistem-pwa-v1';
+const CACHE_NAME = 'tecnosistem-pwa-v2';
 const urlsToCache = [
   './',
   './index.html',
-  './style.css',
-  './app.js',
+  './style.css?v=2',
+  './app.js?v=2',
   './firebase-db.js',
   './manifest.json',
   'https://www.gstatic.com/firebasejs/10.9.0/firebase-app-compat.js',
