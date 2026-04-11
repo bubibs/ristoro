@@ -39,15 +39,23 @@ window.DB = {
   },
 
   async addPlace(type, data) {
-    if (isConfigured) {
-      const docRef = await db.collection(type).add(data);
-      return docRef.id;
-    } else {
-      const places = await this.getPlaces(type);
-      const newPlace = { id: Date.now().toString(), ...data };
-      places.push(newPlace);
-      localStorage.setItem(`tecnosistem_places_${type}`, JSON.stringify(places));
-      return newPlace.id;
+    console.log(`[DB] Aggiunta luogo in ${type}:`, data);
+    try {
+      if (isConfigured) {
+        const docRef = await db.collection(type).add(data);
+        console.log(`[DB] Successo! ID: ${docRef.id}`);
+        return docRef.id;
+      } else {
+        const places = await this.getPlaces(type);
+        const newPlace = { id: Date.now().toString(), ...data };
+        places.push(newPlace);
+        localStorage.setItem(`tecnosistem_places_${type}`, JSON.stringify(places));
+        console.log(`[DB] Successo (Locale)! ID: ${newPlace.id}`);
+        return newPlace.id;
+      }
+    } catch (error) {
+      console.error(`[DB] Errore in addPlace (${type}):`, error);
+      throw error;
     }
   },
 
@@ -62,12 +70,20 @@ window.DB = {
   },
 
   async updatePlace(type, id, data) {
-    if (isConfigured) {
-      await db.collection(type).doc(id).update(data);
-    } else {
-      let places = await this.getPlaces(type);
-      places = places.map(p => p.id === id ? { ...p, ...data } : p);
-      localStorage.setItem(`tecnosistem_places_${type}`, JSON.stringify(places));
+    console.log(`[DB] Aggiornamento luogo in ${type} (ID: ${id}):`, data);
+    try {
+      if (isConfigured) {
+        await db.collection(type).doc(id).update(data);
+        console.log("[DB] Successo!");
+      } else {
+        let places = await this.getPlaces(type);
+        places = places.map(p => p.id === id ? { ...p, ...data } : p);
+        localStorage.setItem(`tecnosistem_places_${type}`, JSON.stringify(places));
+        console.log("[DB] Successo (Locale)!");
+      }
+    } catch (error) {
+      console.error(`[DB] Errore in updatePlace (${type}, ${id}):`, error);
+      throw error;
     }
   }
 };

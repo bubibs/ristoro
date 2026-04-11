@@ -577,69 +577,81 @@ class App {
     document.getElementById('place-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       
-      let lat = document.getElementById('place-lat').value;
-      let lng = document.getElementById('place-lng').value;
-      let address = document.getElementById('place-address').value;
-      
-      // Geocodifica al volo usando OpenStreetMap se è stato digitato un indirizzo testo ma non si è usato il GPS (📍)
-      if((!lat || !lng) && address.trim().length > 0) {
-          try {
-              const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
-              const geodata = await res.json();
-              if (geodata && geodata.length > 0) {
-                  lat = geodata[0].lat;
-                  lng = geodata[0].lon;
-              }
-          } catch(e) { console.error("Geocoding failed", e); }
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const originalBtnText = submitBtn.innerText;
+      submitBtn.disabled = true;
+      submitBtn.innerText = "Salvataggio...";
+
+      try {
+        let lat = document.getElementById('place-lat').value;
+        let lng = document.getElementById('place-lng').value;
+        let address = document.getElementById('place-address').value;
+        
+        // Geocodifica al volo usando OpenStreetMap se è stato digitato un indirizzo testo ma non si è usato il GPS (📍)
+        if((!lat || !lng) && address.trim().length > 0) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+                const geodata = await res.json();
+                if (geodata && geodata.length > 0) {
+                    lat = geodata[0].lat;
+                    lng = geodata[0].lon;
+                }
+            } catch(e) { console.error("Geocoding failed", e); }
+        }
+
+        // Se non si ha null'altro e non vi è indirizzo, prova a forzare la posizione attuale
+        if(!lat || !lng) {
+            if(this.currentLocation && !address.trim()) {
+                lat = this.currentLocation.lat;
+                lng = this.currentLocation.lng;
+            }
+        }
+
+        let parsedLat = parseFloat(lat);
+        let parsedLng = parseFloat(lng);
+
+        const data = {
+          name: document.getElementById('place-name').value,
+          address: address,
+          phone: document.getElementById('place-phone').value,
+          notes: document.getElementById('place-notes').value,
+          lat: isNaN(parsedLat) ? null : parsedLat,
+          lng: isNaN(parsedLng) ? null : parsedLng,
+          createdAt: new Date().toISOString()
+        };
+
+        if (type === 'restaurants' || type === 'hotels') {
+          const ratingEl = document.querySelector('input[name="rating"]:checked');
+          data.rating = ratingEl ? parseInt(ratingEl.value) : 0;
+        }
+        
+        if (type === 'hotels') {
+           data.amenities = {
+              dinner: document.getElementById('am_dinner').checked,
+              elevator: document.getElementById('am_elevator').checked,
+              pool: document.getElementById('am_pool').checked,
+              gym: document.getElementById('am_gym').checked,
+              bar: document.getElementById('am_bar').checked,
+              parking: document.getElementById('am_parking').checked
+           };
+        }
+
+        const placeId = document.getElementById('place-id').value;
+        if (placeId) {
+            await DB.updatePlace(type, placeId, data);
+            window.showToast("Modifiche salvate!");
+        } else {
+            await DB.addPlace(type, data);
+            window.showToast("Nuovo luogo aggiunto!");
+        }
+
+        this.navigate(type); // Go back to list
+      } catch (err) {
+        console.error("Errore durante il salvataggio:", err);
+        window.showToast("Errore durante il salvataggio. Controlla la connessione.", true);
+        submitBtn.disabled = false;
+        submitBtn.innerText = originalBtnText;
       }
-
-      // Se non si ha null'altro e non vi è indirizzo, prova a forzare la posizione attuale
-      if(!lat || !lng) {
-          if(this.currentLocation && !address.trim()) {
-              lat = this.currentLocation.lat;
-              lng = this.currentLocation.lng;
-          }
-      }
-
-      let parsedLat = parseFloat(lat);
-      let parsedLng = parseFloat(lng);
-
-      const data = {
-        name: document.getElementById('place-name').value,
-        address: address,
-        phone: document.getElementById('place-phone').value,
-        notes: document.getElementById('place-notes').value,
-        lat: isNaN(parsedLat) ? null : parsedLat,
-        lng: isNaN(parsedLng) ? null : parsedLng,
-        createdAt: new Date().toISOString()
-      };
-
-      if (type === 'restaurants' || type === 'hotels') {
-        const ratingEl = document.querySelector('input[name="rating"]:checked');
-        data.rating = ratingEl ? parseInt(ratingEl.value) : 0;
-      }
-      
-      if (type === 'hotels') {
-         data.amenities = {
-            dinner: document.getElementById('am_dinner').checked,
-            elevator: document.getElementById('am_elevator').checked,
-            pool: document.getElementById('am_pool').checked,
-            gym: document.getElementById('am_gym').checked,
-            bar: document.getElementById('am_bar').checked,
-            parking: document.getElementById('am_parking').checked
-         };
-      }
-
-      const placeId = document.getElementById('place-id').value;
-      if (placeId) {
-          await DB.updatePlace(type, placeId, data);
-          window.showToast("Modifiche salvate!");
-      } else {
-          await DB.addPlace(type, data);
-          window.showToast("Nuovo luogo aggiunto!");
-      }
-
-      this.navigate(type); // Go back to list
     });
   }
 }
