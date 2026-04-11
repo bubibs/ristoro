@@ -129,12 +129,20 @@
         </div>
 
         <div class="form-group">
-          <label>Indirizzo (Lascia vuoto per usare il GPS attuale)</label>
+          <label>Via e Numero Civico</label>
           <div class="address-input-group">
-             <input type="text" id="place-address" name="address" placeholder="Via Roma 1, Milano">
+             <input type="text" id="place-address-via" placeholder="Es. Via Roma 1">
              <button type="button" class="btn btn-icon get-gps-btn" id="get-gps-btn" title="Usa GPS">📍</button>
           </div>
         </div>
+
+        <div class="form-group">
+          <label>Città</label>
+          <input type="text" id="place-address-city" placeholder="Es. Milano">
+        </div>
+
+        <!-- Campo nascosto per compatibilità con il DB esistente -->
+        <input type="hidden" id="place-address" name="address">
 
         <div class="form-group">
           <label>Telefono / Prenotazioni</label>
