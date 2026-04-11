@@ -573,73 +573,142 @@ class App {
       );
     });
     
-    // Auto-fill from URL Logic
+    // Auto-fill from URL Logic (Ultimate Robust Version)
     document.getElementById('fetch-data-btn').addEventListener('click', async () => {
-        const url = document.getElementById('place-website-url').value.trim();
-        if (!url) return window.showToast("Inserisci un link prima!", true);
+        const urlInput = document.getElementById('place-website-url').value.trim();
+        if (!urlInput) return window.showToast("Inserisci un link prima!", true);
         
+        // Assicurati che l'URL inizi con http/https
+        let url = urlInput;
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+
         const btn = document.getElementById('fetch-data-btn');
         const originalText = btn.innerText;
-        btn.innerText = "⏳ Lettura...";
+        btn.innerText = "⏳ Analisi...";
         btn.disabled = true;
         
+        const proxies = [
+            (u) => `https://api.corsproxy.io/?url=${encodeURIComponent(u)}`,
+            (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+            (u) => `https://api.codetabs.com/v1/proxy?url=${encodeURIComponent(u)}`
+        ];
+
+        let htmlContent = null;
+        let attempt = 0;
+
+        for (const getProxyUrl of proxies) {
+            try {
+                attempt++;
+                if(attempt > 1) {
+                    btn.innerText = `🔄 Provando #${attempt}...`;
+                    console.log(`[Proxy] Tentativo #${attempt} con ${getProxyUrl(url)}`);
+                }
+                
+                const response = await fetch(getProxyUrl(url));
+                if (!response.ok) throw new Error("Proxy error");
+                
+                const data = await response.json();
+                // Gestione diversi formati di risposta dei proxy
+                htmlContent = data.contents || data.result || (typeof data === 'string' ? data : null); 
+                
+                if (htmlContent && typeof htmlContent === 'string' && htmlContent.length > 200) {
+                    console.log(`[Proxy] Successo al tentativo #${attempt}`);
+                    break; 
+                }
+            } catch (e) {
+                console.warn(`[Proxy] Tentativo ${attempt} fallito.`);
+            }
+        }
+
+        if (!htmlContent) {
+            btn.innerText = originalText;
+            btn.disabled = false;
+            return window.showToast("Il sito blocca l'accesso automatico. Prova a inserire i dati a mano.", true);
+        }
+
         try {
-            // Usa AllOrigins proxy per bypassare CORS
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-            const response = await fetch(proxyUrl);
-            const data = await response.json();
-            
-            if (!data || !data.contents) throw new Error("Impossibile leggere il sito");
-            
             const parser = new DOMParser();
-            const doc = parser.parseFromString(data.contents, 'text/html');
+            const doc = parser.parseFromString(htmlContent, 'text/html');
             
-            // 1. Estrai Nome
+            // --- 1. ESTRAZIONE NOME ---
             let name = "";
-            const ogTitle = doc.querySelector('meta[property="og:title"]');
-            const title = doc.querySelector('title');
-            const h1 = doc.querySelector('h1');
-            
-            if (ogTitle) name = ogTitle.getAttribute('content');
-            else if (title) name = title.innerText;
-            else if (h1) name = h1.innerText;
-            
-            if (name) {
-                // Pulisci nome (spesso i siti hanno anche il titolo del sito nel title tag)
-                name = name.split('|')[0].split('-')[0].trim();
-                document.getElementById('place-name').value = name;
+            const nameSelectors = [
+                'meta[property="og:site_name"]',
+                'meta[property="og:title"]',
+                'meta[name="application-name"]',
+                'title',
+                '.logo-text', '.site-title', 'h1', 'h2'
+            ];
+
+            for (const sel of nameSelectors) {
+                const el = doc.querySelector(sel);
+                if (!el) continue;
+                
+                let val = sel.includes('meta') ? el.getAttribute('content') : el.innerText;
+                if (!val || val.length < 3) continue;
+
+                // Evita titoli generici
+                const low = val.toLowerCase();
+                if (low === 'home' || low === 'homepage' || low === 'home page' || low === 'benvenuti' || low === 'index') continue;
+                
+                name = val;
+                break;
             }
             
-            // 2. Estrai Telefono (cerca link tel: o pattern regex)
+            // Fallback: cerca nel copyright in fondo
+            if (!name || name.length < 3) {
+                const footerText = doc.body.innerText.split('\n').slice(-20).join(' '); // Ultimi pezzi
+                const cpMatch = footerText.match(/(?:Copyright|©)\s*(?:\d{4})?\s*([^,|.]+)/i);
+                if (cpMatch) name = cpMatch[1].trim();
+            }
+
+            if (name) {
+                name = name.split('|')[0].split('-')[0].split(' – ')[0].split(' : ')[0].trim();
+                document.getElementById('place-name').value = name;
+            }
+
+            // --- 2. ESTRAZIONE TELEFONO ---
             let phone = "";
             const telLink = doc.querySelector('a[href^="tel:"]');
             if (telLink) {
-                phone = telLink.getAttribute('href').replace('tel:', '').trim();
+                phone = telLink.getAttribute('href').replace('tel:', '').replace(/\s+/g, '').trim();
             } else {
-                // Regex per numeri italiani generici
-                const phoneMatch = data.contents.match(/(\+39|0039)?[\s-]?\d{2,4}[\s-]?\d{6,8}/);
-                if (phoneMatch) phone = phoneMatch[0].trim();
+                const phoneRegex = /(?:(?:\+39|0039)\s?)?((?:0|3)\d{1,4}\s?[\d\s-]{5,10})/g;
+                const matches = htmlContent.match(phoneRegex);
+                if (matches) phone = matches[0].replace(/\s+/g, '').trim();
             }
             if (phone) document.getElementById('place-phone').value = phone;
+
+            // --- 3. ESTRAZIONE INDIRIZZO ---
+            let address = "";
+            // Cerca zone sospette
+            const addrSearchArea = doc.querySelector('address, footer, .footer, #footer, .contact, #contact') || doc.body;
+            const text = addrSearchArea.innerText.replace(/\s+/g, ' ');
+
+            // Regex avanzata per indirizzi italiani (comprende vari formati anche con comuni/CAP invertiti)
+            const itAddrRegex = /(?:Via|Piazza|Viale|Corso|Largo|Vicolo|Contrada|Loc\.|Località)\s+[A-Z][a-z\s']+,?\s+\d{1,4}?[^,]*?,\s*(?:\d{5}\s+[A-Z\s]+|[A-Z\s]+\s+\d{5})(?:\s*\([A-Z]{2}\))?/i;
+            const match = text.match(itAddrRegex);
             
-            // 3. Estrai Note o Indirizzo (molto semplificato)
-            // Cerca tag <address> o testi comuni
-            const addrEl = doc.querySelector('address');
-            if (addrEl) {
-                document.getElementById('place-address').value = addrEl.innerText.trim().replace(/\s+/g, ' ');
+            if (match) {
+                address = match[0].trim();
+            } else if (doc.querySelector('address')) {
+                address = doc.querySelector('address').innerText.trim().replace(/\s+/g, ' ');
             }
             
-            window.showToast("Dati recuperati! Controllali prima di salvare.");
+            if (address) document.getElementById('place-address').value = address;
+
+            window.showToast("Dati recuperati! Controlla i campi.");
         } catch (err) {
             console.error(err);
-            window.showToast("Impossibile recuperare i dati da questo sito.", true);
+            window.showToast("Errore durante l'analisi del sito.", true);
         } finally {
             btn.innerText = originalText;
             btn.disabled = false;
         }
     });
 
-    // Form Submit
+    // Form Submit logic...
+
     document.getElementById('place-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       
