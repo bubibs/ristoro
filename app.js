@@ -44,7 +44,8 @@ class App {
         const isFirebaseOk = (window.DB && window.firebaseConfig && window.firebaseConfig.apiKey !== "YOUR_API_KEY");
         if(isFirebaseOk) {
             syncEl.innerHTML = "🟢 <span style='font-size:0.7rem;'>Cloud</span>";
-            syncEl.title = "Sincronizzato online con Firebase";
+            syncEl.title = "Sincronizzazione attiva. Clicca per aggiornare manualmente.";
+            syncEl.onclick = () => { this.forceRefresh(); };
         } else {
             syncEl.innerHTML = "🏢 <span style='font-size:0.7rem;'>Locale</span>";
             syncEl.title = "Salvataggio sul telefono. Configura Firebase per sincronizzare.";
@@ -172,6 +173,25 @@ class App {
       return `https://maps.apple.com/?daddr=${daddr}`;
   }
 
+  async forceRefresh() {
+      if(this.isRefreshing) return;
+      if(this.currentView.includes('-')) return window.showToast("Torna prima alla scheda principale per aggiornare.", true);
+      
+      this.isRefreshing = true;
+      const syncEl = document.getElementById('sync-status');
+      if (syncEl) syncEl.innerHTML = "🔄 <span style='font-size:0.7rem;'>Sync...</span>";
+      
+      try {
+          await this.navigate(this.currentView);
+          window.showToast("Dati sincronizzati con successo dal Cloud!");
+      } catch (err) {
+          window.showToast("Errore di rete nell'aggiornamento.", true);
+      }
+      
+      this.isRefreshing = false;
+      this.checkSyncStatus();
+  }
+
   goBack() {
     if (this.currentView.includes('-add')) {
       const parentView = this.currentView.split('-')[0];
@@ -281,6 +301,14 @@ class App {
   async loadMapMarkers() {
     if (!this.map) return;
     
+    // Mostriamo un caricamento visivo per le liste della home
+    const listContainer = document.getElementById('nearby-list');
+    const resContainer = document.getElementById('home-nearby-results');
+    if (listContainer && resContainer) {
+        resContainer.style.display = 'block';
+        listContainer.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size: 0.9rem;">⏳ Sincronizzazione in corso...</div>';
+    }
+
     const types = ['work', 'hotels', 'restaurants'];
     const icons = { 
         work: '💼', 
@@ -441,8 +469,11 @@ class App {
     document.getElementById('add-new-btn').onclick = () => this.navigate(type, 'add');
 
     const container = document.getElementById('list-container');
+    container.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-muted); font-size: 0.9rem;">⏳ Sincronizzazione in corso...</div>';
+    
     const places = await DB.getPlaces(type);
 
+    container.innerHTML = '';
     if (places.length === 0) {
       container.innerHTML = `<div class="empty-state">Nessun luogo salvato. Aggiungine uno!</div>`;
       return;
