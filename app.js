@@ -807,33 +807,16 @@ class App {
             if (citta) {
                 document.getElementById('place-address-city').value = citta.trim();
             }
+
             // Aggiorna anche il campo hidden unificato per compatibilità DB
             const fullAddr = [via, citta].filter(Boolean).join(', ');
             if (fullAddr) document.getElementById('place-address').value = fullAddr;
-            
-            // Tentativo finale con OpenStreetMap tramite nome, se l'indirizzo dal sito è mancante
-            if (!via && !citta && name) {
-                try {
-                    const resGeo = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(name)}&countrycodes=it&limit=1&addressdetails=1`);
-                    const geo = await resGeo.json();
-                    if (geo && geo.length > 0) {
-                        const addrObj = geo[0].address || {};
-                        citta = addrObj.city || addrObj.town || addrObj.village || '';
-                        via = ((addrObj.road || '') + ' ' + (addrObj.house_number || '')).trim();
-                        if (via) document.getElementById('place-address-via').value = via;
-                        if (citta) document.getElementById('place-address-city').value = citta;
-                        if (via || citta) document.getElementById('place-address').value = [via, citta].filter(Boolean).join(', ');
-                        document.getElementById('place-lat').value = geo[0].lat;
-                        document.getElementById('place-lng').value = geo[0].lon;
-                    }
-                } catch(e) { console.error("OSM fallback by name failed", e); }
-            }
 
             const found = [name && 'nome', phone && 'telefono', (via || citta) && 'indirizzo'].filter(Boolean);
             if (found.length > 0) {
                 window.showToast(`✅ Trovato: ${found.join(', ')}. Controlla e salva!`);
             } else {
-                window.showToast("⚠️ Recupero parziale. Usa il tasto 🔍 Cerca su Google se ti mancano dati.", true);
+                window.showToast("⚠️ Recupero parziale. Usa 🔍 Cerca su Google per i dati mancanti.", true);
             }
         } catch (err) {
             console.error('[Fetch] Errore analisi:', err);
@@ -872,13 +855,29 @@ class App {
                 const cittaVal = (document.getElementById('place-address-city').value || '').trim();
                 
                 let geodata = [];
-                // Se abbiamo diviso via e città, usiamo un query strutturata (risolve il problema dei comuni limitrofi o province come "Brescia Via milano")
+                // Se abbiamo diviso via e città, usiamo query strutturata
                 if (viaVal && cittaVal) {
-                    const resStr = await fetch(`https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(viaVal)}&city=${encodeURIComponent(cittaVal)}&countrycodes=it&limit=1`);
+                    const resStr = await fetch(`https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(viaVal)}&city=${encodeURIComponent(cittaVal)}&countrycodes=it&limit=1&addressdetails=1`);
                     geodata = await resStr.json();
+                    
+                    // OSM a volte risponde con un indirizzo in un altro paese della stessa provincia se il civico non esiste in città
+                    if (geodata && geodata.length > 0) {
+                        const addr = geodata[0].address || {};
+                        const foundCity = (addr.city || addr.town || addr.village || addr.municipality || '').toLowerCase();
+                        const reqCity = cittaVal.toLowerCase();
+                        if (foundCity && !foundCity.includes(reqCity) && !reqCity.includes(foundCity)) {
+                            // Trovato in un altro comune! Riproviamo senza il numero civico
+                            const viaNoNum = viaVal.replace(/\s*\d+[a-zA-Z]*\b/g, '').trim();
+                            if (viaNoNum !== viaVal) {
+                                const resStr2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(viaNoNum)}&city=${encodeURIComponent(cittaVal)}&countrycodes=it&limit=1`);
+                                const geodata2 = await resStr2.json();
+                                if(geodata2 && geodata2.length > 0) geodata = geodata2;
+                            }
+                        }
+                    }
                 }
                 
-                // Fallback (se geocoding strutturato non trova nulla, o se l'utente ha messo tutto nel campo Via)
+                // Fallback (se geocoding strutturato non trova nulla o se ha messo tutto nel campo Via)
                 if (!geodata || geodata.length === 0) {
                     let searchQ = address.replace(/\b(a|in|alla|al)\b/ig, ',').replace(/\s+/g, ' ').trim();
                     const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQ)}&limit=1&countrycodes=it`);
