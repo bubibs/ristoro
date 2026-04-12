@@ -333,8 +333,8 @@ class App {
           
           marker.bindPopup(`
             <div style="text-align:center;">
-              <b style="font-size:1.1rem; color:var(--color-primary);">${p.name}</b><br>
-              <span style="color:gray; font-size: 0.9rem;">${p.address || ''}</span><br>
+              <b style="font-size:1.1rem; color:var(--text-main);">${p.name}</b><br>
+              <span style="color:var(--text-muted); font-size: 0.9rem;">${p.address || ''}</span><br>
               ${p.phone ? `<a class="btn btn-accent btn-block" href="tel:${p.phone}" style="margin-top:10px; font-size:0.9rem; margin-bottom: 5px;">📞 Chiama</a>` : ''}
               <a class="btn btn-primary btn-block" href="${this.getNavUrl(p)}" target="_blank" style="margin-top:5px; font-size:0.9rem;">
                 📍 Naviga Apple Maps
@@ -429,8 +429,8 @@ class App {
       const buildHtml = (places, icon, title, isOpen=true) => {
           if(places.length === 0) return '';
           let html = `<details ${isOpen ? 'open' : ''} style="margin-bottom: 15px;">
-                       <summary style="cursor: pointer; font-size: 1.1rem; color: var(--color-primary); font-weight: bold; border-bottom: 2px solid var(--border-color); padding-bottom: 5px; list-style-type: none; outline: none; margin-bottom: 10px;">
-                          ${icon} ${title} Più Vicini <span style="float:right; font-size: 0.8rem;">▼</span>
+                       <summary style="cursor: pointer; font-size: 1.1rem; color: var(--text-main); font-weight: bold; border-bottom: 2px solid var(--border-color); padding-bottom: 5px; list-style-type: none; outline: none; margin-bottom: 10px;">
+                          ${icon} ${title} Più Vicini <span style="float:right; font-size: 0.8rem; color: var(--text-muted);">▼</span>
                        </summary>`;
           places.forEach(p => {
               let navUrl = this.getNavUrl(p);
@@ -441,7 +441,7 @@ class App {
                   <div class="list-item" style="cursor:pointer; margin-bottom: 10px;" onclick="window.open('${navUrl}', '_blank')">
                       <div class="list-item-title" style="display:flex; align-items:center; margin-bottom:5px;">
                          ${p.name} 
-                         <span style="color:var(--color-primary); font-weight:bold; font-size:0.85rem; margin-left:auto;">🚗 ~${p._dist} km</span>
+                         <span style="color:var(--text-main); font-weight:bold; font-size:0.85rem; margin-left:auto;">🚗 ~${p._dist} km</span>
                       </div>
                       <div class="list-item-addr">${p.address || ''}</div>
                       <div class="list-item-actions" style="margin-top:10px; flex-direction:row; justify-content: flex-start; gap:10px;" onclick="event.stopPropagation()">
