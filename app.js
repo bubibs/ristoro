@@ -854,34 +854,44 @@ class App {
                 const viaVal = (document.getElementById('place-address-via').value || '').trim();
                 const cittaVal = (document.getElementById('place-address-city').value || '').trim();
                 
+                // Estraiamo la città "attesa" (anche se l'utente non ha usato il campo Città esplicitamente)
+                let expectedCity = cittaVal;
+                if (!expectedCity && viaVal.includes(',')) {
+                    expectedCity = viaVal.split(',').pop().trim();
+                } else if (!expectedCity) {
+                    const match = viaVal.match(/\b(?:a|in)\s+([a-zA-ZÀ-ÿ\s]+)$/i);
+                    if (match) expectedCity = match[1].trim();
+                }
+                if (expectedCity) {
+                    expectedCity = expectedCity.replace(/\b\d{5}\b/g, '').replace(/\b[A-Za-z]{2}\b$/, '').replace(/,/g, '').trim().toLowerCase();
+                }
+
                 let geodata = [];
                 // Se abbiamo diviso via e città, usiamo query strutturata
                 if (viaVal && cittaVal) {
                     const resStr = await fetch(`https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(viaVal)}&city=${encodeURIComponent(cittaVal)}&countrycodes=it&limit=1&addressdetails=1`);
                     geodata = await resStr.json();
-                    
-                    // OSM a volte risponde con un indirizzo in un altro paese della stessa provincia se il civico non esiste in città
-                    if (geodata && geodata.length > 0) {
-                        const addr = geodata[0].address || {};
-                        const foundCity = (addr.city || addr.town || addr.village || addr.municipality || '').toLowerCase();
-                        const reqCity = cittaVal.toLowerCase();
-                        if (foundCity && !foundCity.includes(reqCity) && !reqCity.includes(foundCity)) {
-                            // Trovato in un altro comune! Riproviamo senza il numero civico
-                            const viaNoNum = viaVal.replace(/\s*\d+[a-zA-Z]*\b/g, '').trim();
-                            if (viaNoNum !== viaVal) {
-                                const resStr2 = await fetch(`https://nominatim.openstreetmap.org/search?format=json&street=${encodeURIComponent(viaNoNum)}&city=${encodeURIComponent(cittaVal)}&countrycodes=it&limit=1`);
-                                const geodata2 = await resStr2.json();
-                                if(geodata2 && geodata2.length > 0) geodata = geodata2;
-                            }
-                        }
-                    }
                 }
                 
                 // Fallback (se geocoding strutturato non trova nulla o se ha messo tutto nel campo Via)
                 if (!geodata || geodata.length === 0) {
                     let searchQ = address.replace(/\b(a|in|alla|al)\b/ig, ',').replace(/\s+/g, ' ').trim();
-                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQ)}&limit=1&countrycodes=it`);
+                    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQ)}&limit=1&countrycodes=it&addressdetails=1`);
                     geodata = await res.json();
+                }
+
+                // VALIDAZIONE: OSM spesso dirotta su altri comuni omonimi in provincia (es. Chiari/Borno invece di Brescia) 
+                // se il numero civico non esiste nel comune esatto. Rimuoviamo il civico se notiamo anomalie.
+                if (geodata && geodata.length > 0 && expectedCity) {
+                    const addr = geodata[0].address || {};
+                    const foundCity = (addr.city || addr.town || addr.village || addr.municipality || '').toLowerCase();
+                    if (foundCity && !foundCity.includes(expectedCity) && !expectedCity.includes(foundCity)) {
+                        console.warn(`[Geo] OSM ha trovato ${foundCity} anziché ${expectedCity}. Riprovo senza civico.`);
+                        const cleanAddress = address.replace(/\b\d+[a-zA-Z\/]*\b/g, '').replace(/\b(a|in|alla|al)\b/ig, ',').replace(/\s+/g, ' ').trim();
+                        const resRe = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(cleanAddress)}&limit=1&countrycodes=it&addressdetails=1`);
+                        const geoRe = await resRe.json();
+                        if (geoRe && geoRe.length > 0) geodata = geoRe;
+                    }
                 }
 
                 if (geodata && geodata.length > 0) {
