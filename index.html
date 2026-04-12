@@ -120,7 +120,10 @@
              <input type="url" id="place-website-url" placeholder="Incolla il link del sito web qui...">
              <button type="button" class="btn btn-accent" id="fetch-data-btn" style="min-width: 120px; font-size: 0.85rem;" title="Recupera dati dal sito">✨ Recupera</button>
           </div>
-          <small style="color:var(--text-muted); font-size:0.75rem;">Suggerimento: Incolla il sito del ristorante/hotel e clicca Recupera!</small>
+          <div style="margin-top: 5px; display: flex; justify-content: space-between; align-items: flex-start; gap:10px;">
+             <small style="color:var(--text-muted); font-size:0.75rem; flex:1;">Suggerimento: Incolla il sito e clicca Recupera. Se non ti trova i dati, c'è il tasto Google.</small>
+             <button type="button" id="search-google-btn" class="btn" style="border: 1px solid #ea4335; color: #ea4335; background: transparent; padding: 4px 8px; font-size: 0.75rem; border-radius: 8px; white-space: nowrap;" onclick="window.app.searchGooglePlace()">🔍 Cerca su Google</button>
+          </div>
         </div>
         
         <div class="form-group">
