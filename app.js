@@ -545,6 +545,20 @@ class App {
        if(editData.lat !== null) document.getElementById('place-lat').value = editData.lat;
        if(editData.lng !== null) document.getElementById('place-lng').value = editData.lng;
        
+       // Popola i campi visibili Via e Città dividendo l'indirizzo salvato
+       if (editData.address) {
+           const parts = editData.address.split(',').map(s => s.trim());
+           // Se l'indirizzo inizia con Via/Piazza/etc., il primo pezzo è la via, il resto è la città
+           const viaKeyword = /^(?:Via|Piazza|Viale|Corso|Largo|Vicolo|Contrada|Loc\.?|Località|Strada|Statale|Provinciale|Frazione|\[GPS\])/i;
+           if (parts.length >= 2 && viaKeyword.test(parts[0])) {
+               document.getElementById('place-address-via').value = parts[0];
+               document.getElementById('place-address-city').value = parts.slice(1).join(', ');
+           } else {
+               // Indirizzo non strutturato: metti tutto nel campo via
+               document.getElementById('place-address-via').value = editData.address;
+           }
+       }
+       
        if (editData.rating && (type === 'restaurants' || type === 'hotels')) {
           const rEl = document.querySelector(`input[name="rating"][value="${editData.rating}"]`);
           if(rEl) rEl.checked = true;
@@ -573,7 +587,7 @@ class App {
       );
     });
     
-    // Auto-fill from URL Logic (Ultimate Robust Version)
+    // Auto-fill from URL Logic (Robust Version v3)
     document.getElementById('fetch-data-btn').addEventListener('click', async () => {
         const urlInput = document.getElementById('place-website-url').value.trim();
         if (!urlInput) return window.showToast("Inserisci un link prima!", true);
@@ -587,44 +601,78 @@ class App {
         btn.innerText = "⏳ Analisi...";
         btn.disabled = true;
         
+        // NOTA: ogni proxy ha un formato diverso — bisogna gestirli separatamente
         const proxies = [
-            (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
-            (u) => `https://corsproxy.org/?url=${encodeURIComponent(u)}`,
-            (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`
+            // 1. AllOrigins — risponde JSON con campo "contents"
+            {
+                getUrl: (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+                parse: async (resp) => { const d = await resp.json(); return d && d.contents ? d.contents : null; }
+            },
+            // 2. AllOrigins RAW — risponde direttamente HTML (endpoint alternativo)
+            {
+                getUrl: (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+                parse: async (resp) => resp.text()
+            },
+            // 3. corsproxy.io — formato CORRETTO: URL direttamente dopo "?" (SENZA "url=")
+            {
+                getUrl: (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+                parse: async (resp) => resp.text()
+            },
+            // 4. CodeTabs
+            {
+                getUrl: (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+                parse: async (resp) => resp.text()
+            },
+            // 5. ThingProxy (non richiede encoding)
+            {
+                getUrl: (u) => `https://thingproxy.freeboard.io/fetch/${u}`,
+                parse: async (resp) => resp.text()
+            },
+            // 6. CORS Anywhere (richiede activazione manuale su heroku – fallback estremo)
+            {
+                getUrl: (u) => `https://cors-anywhere.herokuapp.com/${u}`,
+                parse: async (resp) => resp.text()
+            }
         ];
 
         let htmlContent = null;
         let attempt = 0;
 
-        for (const getProxyUrl of proxies) {
+        for (const proxy of proxies) {
             try {
                 attempt++;
-                let currentUrl = getProxyUrl(url);
-                if(attempt > 1) {
-                    btn.innerText = `🔄 Provando #${attempt}...`;
-                    console.log(`[Proxy] Tentativo #${attempt} con ${currentUrl}`);
-                }
+                const currentUrl = proxy.getUrl(url);
+                btn.innerText = `🔄 Proxy #${attempt}...`;
+                console.log(`[Proxy] Tentativo #${attempt}: ${currentUrl}`);
                 
-                const response = await fetch(currentUrl);
-                if (!response.ok) throw new Error("Proxy error");
+                // AbortSignal con timeout 12s per non bloccare troppo
+                const controller = new AbortController();
+                const timerId = setTimeout(() => controller.abort(), 12000);
                 
-                const data = await response.json().catch(() => null);
-                // Gestione diversi formati di risposta dei proxy
-                htmlContent = data ? (data.contents || data.result || (typeof data === 'string' ? data : null)) : await response.text(); 
+                const response = await fetch(currentUrl, { signal: controller.signal });
+                clearTimeout(timerId);
                 
-                if (htmlContent && typeof htmlContent === 'string' && htmlContent.length > 200) {
-                    console.log(`[Proxy] Successo al tentativo #${attempt}`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                htmlContent = await proxy.parse(response);
+                
+                if (htmlContent && typeof htmlContent === 'string' && htmlContent.length > 300) {
+                    console.log(`[Proxy] ✅ Successo al tentativo #${attempt} (${htmlContent.length} chars)`);
                     break; 
+                } else {
+                    console.warn(`[Proxy] Risposta troppo corta o vuota: ${htmlContent?.length}`);
+                    htmlContent = null;
                 }
             } catch (e) {
-                console.warn(`[Proxy] Tentativo ${attempt} fallito.`);
+                console.warn(`[Proxy] Tentativo ${attempt} fallito: ${e.message}`);
+                htmlContent = null;
             }
         }
 
         if (!htmlContent) {
             btn.innerText = originalText;
             btn.disabled = false;
-            return window.showToast("Il sito blocca l'accesso automatico. Prova a inserire i dati a mano.", true);
+            return window.showToast("❌ Il sito blocca l'accesso automatico. Inserisci i dati a mano.", true);
         }
 
         try {
@@ -637,51 +685,64 @@ class App {
                 'meta[property="og:site_name"]',
                 'meta[property="og:title"]',
                 'meta[name="application-name"]',
+                'meta[name="twitter:title"]',
                 'title',
-                '.logo-text', '.site-title', 'h1', 'h2'
+                '.logo-text', '.site-title', '[class*="logo"]', 'h1', 'h2'
             ];
 
             for (const sel of nameSelectors) {
                 const el = doc.querySelector(sel);
                 if (!el) continue;
                 
-                let val = sel.includes('meta') ? el.getAttribute('content') : el.innerText;
-                if (!val || val.length < 3) continue;
+                let val = sel.startsWith('meta') ? el.getAttribute('content') : (el.innerText || el.textContent);
+                if (!val || val.trim().length < 2) continue;
 
                 // Evita titoli generici
-                const low = val.toLowerCase();
-                if (low === 'home' || low === 'homepage' || low === 'home page' || low === 'benvenuti' || low === 'index') continue;
+                const low = val.toLowerCase().trim();
+                const blocklist = ['home', 'homepage', 'home page', 'benvenuti', 'index', 'welcome', 'sito in costruzione', 'coming soon'];
+                if (blocklist.includes(low)) continue;
                 
-                name = val;
+                name = val.trim();
                 break;
             }
             
             // Fallback: cerca nel copyright in fondo
-            if (!name || name.length < 3) {
-                const footerText = doc.body.innerText.split('\n').slice(-20).join(' '); // Ultimi pezzi
-                const cpMatch = footerText.match(/(?:Copyright|©)\s*(?:\d{4})?\s*([^,|.]+)/i);
-                if (cpMatch) name = cpMatch[1].trim();
+            if (!name || name.length < 2) {
+                const allText = doc.body ? (doc.body.innerText || doc.body.textContent) : '';
+                const footerText = allText.split('\n').slice(-30).join(' ');
+                const cpMatch = footerText.match(/(?:Copyright|©|\(c\))\s*(?:\d{4}[-–]?\d{0,4})?\s*([^,|.\n]+)/i);
+                if (cpMatch && cpMatch[1]) name = cpMatch[1].trim();
             }
 
             if (name) {
-                name = name.split('|')[0].split('-')[0].split(' – ')[0].split(' : ')[0].trim();
+                // Pulisci separatori comuni nei titoli di pagina
+                name = name.split(/[|\-–—:]/).map(s => s.trim()).filter(s => s.length > 1)[0] || name;
+                name = name.trim();
                 document.getElementById('place-name').value = name;
             }
 
             // --- 2. ESTRAZIONE TELEFONO ---
             let phone = "";
-            const telLink = doc.querySelector('a[href^="tel:"]');
-            if (telLink) {
-                phone = telLink.getAttribute('href').replace('tel:', '').replace(/\s+/g, '').trim();
-            } else {
-                // Regex migliorata per telefoni italiani: supporta prefissi, spazi, +39, e numeri fissi/cellulari
-                const phoneRegex = /(?:(?:\+39|0039|[+( ]39[) ]?)\s?)?((?:0\d{1,4}|3\d{2})\s?[\d\s\-.]{5,10})/g;
-                const matches = htmlContent.match(phoneRegex);
-                if (matches) {
-                    // Prendi il primo match che non sia troppo corto
-                    for(const m of matches) {
-                        let clean = m.replace(/[^\d+]/g, '');
-                        if(clean.length >= 6) {
+            // Prima cerca link tel: che è il più affidabile
+            const telLinks = doc.querySelectorAll('a[href^="tel:"]');
+            if (telLinks.length > 0) {
+                phone = telLinks[0].getAttribute('href').replace('tel:', '').replace(/\s+/g, '').trim();
+            }
+            
+            if (!phone) {
+                // Cerca anche in microdata/schema.org
+                const schemaTel = doc.querySelector('[itemprop="telephone"]');
+                if (schemaTel) phone = (schemaTel.getAttribute('content') || schemaTel.innerText || schemaTel.textContent || '').trim();
+            }
+
+            if (!phone) {
+                // Regex per telefoni italiani nel testo HTML grezzo
+                const phoneRegex = /(?:\+39[\s.-]?)?(?:0\d{1,4}[\s.-]?\d{2,4}[\s.-]?\d{2,4}[\s.-]?\d{0,4}|3\d{2}[\s.-]?\d{3}[\s.-]?\d{4})/g;
+                const rawMatches = htmlContent.match(phoneRegex);
+                if (rawMatches) {
+                    for(const m of rawMatches) {
+                        let clean = m.replace(/[^\d]/g, '');
+                        if (clean.length >= 9 && clean.length <= 13) {
                             phone = m.trim();
                             break;
                         }
@@ -691,47 +752,61 @@ class App {
             if (phone) document.getElementById('place-phone').value = phone;
 
             // --- 3. ESTRAZIONE INDIRIZZO ---
-            let address = "";
-            // Cerca zone sospette
-            const addrSearchArea = doc.querySelector('address, footer, .footer, #footer, .contact, #contact') || doc.body;
-            const text = addrSearchArea.innerText.replace(/\s+/g, ' ');
-
-            // Regex avanzata per indirizzi italiani (comprende vari formati anche con comuni/CAP invertiti)
-            const itAddrRegex = /(?:Via|Piazza|Viale|Corso|Largo|Vicolo|Contrada|Loc\.|Località)\s+[A-Z][a-z\s']+,?\s+\d{1,4}?[^,]*?,\s*(?:\d{5}\s+[A-Z\s]+|[A-Z\s]+\s+\d{5})(?:\s*\([A-Z]{2}\))?/i;
-            const match = text.match(itAddrRegex);
+            let via = "";
+            let citta = "";
             
-            if (match) {
-                address = match[0].trim();
-            } else {
-                // Ulteriore tentativo (più elastico): Cerca Pattern "Via/Piazza ... Numero ... CAP ... Città"
-                // Supporta indirizzi con virgole extra o formati meno rigidi
-                const addressKeywords = "Via|Piazza|Viale|Corso|Largo|Vicolo|Contrada|Loc\\.|Località|Strada|Provinciale|Statale";
-                const flexAddrRegex = new RegExp(`(?:${addressKeywords})\\s+[A-Z][a-z\\s']+,?\\s+\\d{1,4}?[^\\d]*\\d{5}\\s+[A-Z\\s]+`, 'i');
-                const flexMatch = text.match(flexAddrRegex);
-                
-                if (flexMatch) {
-                    address = flexMatch[0].trim();
-                } else if (doc.querySelector('address')) {
-                    address = doc.querySelector('address').innerText.trim().replace(/\s+/g, ' ');
-                } else {
-                    // Cerca il CAP (5 cifre) e prendi un po' di testo prima e dopo
-                    const capMatch = text.match(/\d{5}\s+[A-Z\s]{2,}/);
-                    if (capMatch) {
-                        const capIdx = text.indexOf(capMatch[0]);
-                        address = text.substring(Math.max(0, capIdx - 40), capIdx + capMatch[0].length).trim();
-                    }
+            // Cerca prima in microdata/schema.org (strutturato = più affidabile)
+            const schemaStreet = doc.querySelector('[itemprop="streetAddress"]');
+            const schemaCity = doc.querySelector('[itemprop="addressLocality"]');
+            const schemaPostal = doc.querySelector('[itemprop="postalCode"]');
+            
+            if (schemaStreet) {
+                via = (schemaStreet.getAttribute('content') || schemaStreet.innerText || schemaStreet.textContent || '').trim();
+            }
+            if (schemaCity) {
+                citta = (schemaCity.getAttribute('content') || schemaCity.innerText || schemaCity.textContent || '').trim();
+                if (schemaPostal) {
+                    const cap = (schemaPostal.getAttribute('content') || schemaPostal.innerText || schemaPostal.textContent || '').trim();
+                    if (cap) citta = cap + ' ' + citta;
                 }
             }
             
-            if (address) {
-                // Pulizia finale indirizzo (rimuove prefissi come "Indirizzo:" o "Sede:")
-                address = address.replace(/^(?:Indirizzo|Sede|Address|Dove siamo|Location):\s*/i, '').trim();
-                document.getElementById('place-address').value = address;
+            // Se non trovato con schema, cerca nel testo
+            if (!via) {
+                const addrEl = doc.querySelector('address, footer, .footer, #footer, .contact, #contact, [class*="contatti"], [id*="contatti"], [class*="sede"]');
+                const searchText = (addrEl ? (addrEl.innerText || addrEl.textContent) : (doc.body ? (doc.body.innerText || doc.body.textContent) : '')).replace(/\s+/g, ' ');
+
+                // Regex per trovare Via/Piazza/... con numero civico
+                const viaRegex = /(?:Via|Piazza|Viale|Corso|Largo|Vicolo|Contrada|Loc\.?|Località|Strada|Provinciale|Statale|Frazione)\s+[A-Za-zÀ-ÿ'\s]{2,40?}\s*,?\s*\d{1,4}[a-z]?/i;
+                const viaMatch = searchText.match(viaRegex);
+                if (viaMatch) via = viaMatch[0].trim().replace(/,$/, '');
+                
+                // Cerca CAP+Città
+                const capCittaRegex = /\b(\d{5})\s+([A-ZÀÈÌÒÙ][a-z\sàèìòù']{2,30})(?:\s*\([A-Z]{2}\))?/;
+                const capMatch = searchText.match(capCittaRegex);
+                if (capMatch) citta = capMatch[1] + ' ' + capMatch[2].trim();
             }
 
-            window.showToast("Dati recuperati! Controlla i campi.");
+            // Popola i campi corretti
+            if (via) {
+                via = via.replace(/^(?:Indirizzo|Sede|Address|Dove siamo|Location|Indirizzo:)\s*/i, '').trim();
+                document.getElementById('place-address-via').value = via;
+            }
+            if (citta) {
+                document.getElementById('place-address-city').value = citta.trim();
+            }
+            // Aggiorna anche il campo hidden unificato per compatibilità DB
+            const fullAddr = [via, citta].filter(Boolean).join(', ');
+            if (fullAddr) document.getElementById('place-address').value = fullAddr;
+
+            const found = [name && 'nome', phone && 'telefono', (via || citta) && 'indirizzo'].filter(Boolean);
+            if (found.length > 0) {
+                window.showToast(`✅ Trovato: ${found.join(', ')}. Controlla e salva!`);
+            } else {
+                window.showToast("⚠️ Recupero parziale. Controlla e completa a mano.", true);
+            }
         } catch (err) {
-            console.error(err);
+            console.error('[Fetch] Errore analisi:', err);
             window.showToast("Errore durante l'analisi del sito.", true);
         } finally {
             btn.innerText = originalText;
@@ -750,6 +825,12 @@ class App {
       submitBtn.innerText = "Salvataggio...";
 
       try {
+        // Combina i campi visibili Via + Città nel campo hidden unificato
+        const viaVal = (document.getElementById('place-address-via').value || '').trim();
+        const cittaVal = (document.getElementById('place-address-city').value || '').trim();
+        const combinedAddr = [viaVal, cittaVal].filter(Boolean).join(', ');
+        if (combinedAddr) document.getElementById('place-address').value = combinedAddr;
+
         let lat = document.getElementById('place-lat').value;
         let lng = document.getElementById('place-lng').value;
         let address = document.getElementById('place-address').value;
