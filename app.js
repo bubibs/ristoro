@@ -434,8 +434,8 @@ class App {
                        </summary>`;
           places.forEach(p => {
               let navUrl = this.getNavUrl(p);
-              let navHtml = `<a class="btn btn-primary" href="${navUrl}" target="_blank" title="Naviga" style="padding:10px; display:inline-block;">📍 Naviga su Maps (Apple)</a>`;
-              let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama" style="padding:10px;">📞</a>` : '';
+              let navHtml = `<a class="btn btn-primary" href="${navUrl}" target="_blank" title="Naviga" style="padding:10px; display:flex; align-items:center; justify-content:center; flex:1;">📍 Naviga su Maps (Apple)</a>`;
+              let callHtml = p.phone ? `<a class="btn btn-accent btn-icon" href="tel:${p.phone}" title="Chiama" style="padding:10px; flex: 0 0 auto; min-width: 50px;">📞</a>` : '';
               
               html += `
                   <div class="list-item" style="cursor:pointer; margin-bottom: 10px;" onclick="window.open('${navUrl}', '_blank')">
@@ -444,7 +444,7 @@ class App {
                          <span style="color:var(--text-main); font-weight:bold; font-size:0.85rem; margin-left:auto;">🚗 ~${p._dist} km</span>
                       </div>
                       <div class="list-item-addr">${p.address || ''}</div>
-                      <div class="list-item-actions" style="margin-top:10px; flex-direction:row; justify-content: flex-start; gap:10px;" onclick="event.stopPropagation()">
+                      <div class="list-item-actions" style="margin-top:10px; display:flex; flex-direction:row; align-items:stretch; gap:10px;" onclick="event.stopPropagation()">
                          ${navHtml} ${callHtml}
                       </div>
                   </div>
@@ -506,8 +506,8 @@ class App {
       }
 
       let navUrl = this.getNavUrl(p);
-      let navHtml = `<a class="btn btn-primary" href="${navUrl}" target="_blank" title="Naviga">📍</a>`;
-      let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama">📞</a>` : '';
+      let navHtml = `<a class="btn btn-primary btn-icon" href="${navUrl}" target="_blank" title="Naviga">📍</a>`;
+      let callHtml = p.phone ? `<a class="btn btn-accent btn-icon" href="tel:${p.phone}" title="Chiama">📞</a>` : '';
       
       let distanceTarget = this.customSearchTarget || this.currentLocation;
       let distanceHtml = '';
