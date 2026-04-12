@@ -513,7 +513,7 @@ class App {
       let distanceHtml = '';
       if(distanceTarget && p.lat && p.lng) {
           const dist = getDistance(distanceTarget.lat, distanceTarget.lng, p.lat, p.lng);
-          if(dist) distanceHtml = `<span style="color:var(--color-primary); font-weight:bold; font-size:0.85rem; margin-left:8px; border:1px solid var(--color-primary); padding:2px 6px; border-radius:12px;">🚗 ~${dist} km</span>`;
+          if(dist) distanceHtml = `<span style="color:var(--text-main); font-weight:bold; font-size:0.85rem; margin-left:8px; border:1px solid var(--border-color); padding:2px 6px; border-radius:12px; background:var(--surface-color);">🚗 ~${dist} km</span>`;
       }
       
       let findNearbyHtml = '';
@@ -532,7 +532,7 @@ class App {
           ${callHtml}
           ${findNearbyHtml}
           <button class="btn btn-icon share-btn" data-id="${p.id}" style="color:#25D366; border-color:#25D366;" title="Condividi">📤</button>
-          <button class="btn btn-icon edit-btn" data-id="${p.id}" style="color:var(--color-primary);" title="Modifica">✏️</button>
+          <button class="btn btn-icon edit-btn" data-id="${p.id}" style="color:var(--text-main); border-color:var(--border-color);" title="Modifica">✏️</button>
           <button class="btn btn-icon delete-btn" data-id="${p.id}" style="color:#d9534f; border-color:#d9534f;" title="Elimina">🗑️</button>
         </div>
       `;
