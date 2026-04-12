@@ -323,13 +323,22 @@ class App {
      const titleEl = document.getElementById('home-target-title');
      if(titleEl) titleEl.innerText = "Ricerca in corso...";
      try {
-         const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityOrName)}&format=json&limit=1`);
+         const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(cityOrName)}&format=json&limit=3&countrycodes=it&addressdetails=1`);
          const data = await res.json();
          if(data && data.length > 0) {
+             let bestItem = data[0];
+             // Evitiamo che Nominatim preferisca la "Provincia" (county) al "Comune" (city) omonimo
+             for(let item of data) {
+                 if(!['county', 'state', 'region', 'country'].includes(item.addresstype)) {
+                     bestItem = item;
+                     break;
+                 }
+             }
+             
              this.customSearchTarget = {
-                 lat: parseFloat(data[0].lat),
-                 lng: parseFloat(data[0].lon),
-                 name: data[0].display_name.split(',')[0]
+                 lat: parseFloat(bestItem.lat),
+                 lng: parseFloat(bestItem.lon),
+                 name: bestItem.display_name.split(',')[0]
              };
              if(titleEl) titleEl.innerText = "Centro spostato a: " + this.customSearchTarget.name;
              const rBtn = document.getElementById('home-reset-target');
@@ -417,7 +426,7 @@ class App {
           return html;
       };
 
-      listContainer.innerHTML = buildHtml(hotels, '🏨', 'Hotel', true) + buildHtml(rests, '🍽️', 'Ristoranti', false);
+      listContainer.innerHTML = buildHtml(hotels, '🏨', 'Hotel', false) + buildHtml(rests, '🍽️', 'Ristoranti', false);
       if (listContainer.innerHTML === '') {
           listContainer.innerHTML = '<div class="empty-state">Nessuna struttura trovata con coordinate GPS valide. Usa il tasto 📍 per l\'indirizzo quando le crei!</div>';
       }
