@@ -158,6 +158,20 @@ class App {
       window.open(`https://www.google.com/search?q=${encodeURIComponent(q + ' indirizzo telefono')}`, '_blank');
   }
 
+  getNavUrl(p) {
+      let daddr = '';
+      if (p.address && p.address.startsWith('[GPS]')) {
+          daddr = `${p.lat},${p.lng}`;
+      } else if (p.address && p.address.trim().length > 0) {
+          daddr = encodeURIComponent(p.address + (p.name ? ' ' + p.name : ''));
+      } else if (p.lat && p.lng && !isNaN(p.lat)) {
+          daddr = `${p.lat},${p.lng}`;
+      } else {
+          daddr = encodeURIComponent(p.name);
+      }
+      return `https://maps.apple.com/?daddr=${daddr}`;
+  }
+
   goBack() {
     if (this.currentView.includes('-add')) {
       const parentView = this.currentView.split('-')[0];
@@ -294,7 +308,7 @@ class App {
               <b style="font-size:1.1rem; color:var(--color-primary);">${p.name}</b><br>
               <span style="color:gray; font-size: 0.9rem;">${p.address || ''}</span><br>
               ${p.phone ? `<a class="btn btn-accent btn-block" href="tel:${p.phone}" style="margin-top:10px; font-size:0.9rem; margin-bottom: 5px;">📞 Chiama</a>` : ''}
-              <a class="btn btn-primary btn-block" href="https://maps.apple.com/?daddr=${daddr}" target="_blank" style="margin-top:5px; font-size:0.9rem;">
+              <a class="btn btn-primary btn-block" href="${this.getNavUrl(p)}" target="_blank" style="margin-top:5px; font-size:0.9rem;">
                 📍 Naviga Apple Maps
               </a>
             </div>
@@ -375,16 +389,19 @@ class App {
       hotels = hotels.map(calcDist).filter(p => p._dist !== Infinity).sort((a,b) => a._dist - b._dist);
       rests = rests.map(calcDist).filter(p => p._dist !== Infinity).sort((a,b) => a._dist - b._dist);
 
-      const buildHtml = (places, icon, title) => {
+      const buildHtml = (places, icon, title, isOpen=true) => {
           if(places.length === 0) return '';
-          let html = `<h4 style="margin-top:15px; margin-bottom:10px; color:var(--text-main); font-size:1.1rem;">${icon}  ${title} Più Vicini</h4>`;
+          let html = `<details ${isOpen ? 'open' : ''} style="margin-bottom: 15px;">
+                       <summary style="cursor: pointer; font-size: 1.1rem; color: var(--color-primary); font-weight: bold; border-bottom: 2px solid var(--border-color); padding-bottom: 5px; list-style-type: none; outline: none; margin-bottom: 10px;">
+                          ${icon} ${title} Più Vicini <span style="float:right; font-size: 0.8rem;">▼</span>
+                       </summary>`;
           places.forEach(p => {
-              let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
-              let navHtml = `<a class="btn btn-primary" href="https://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga" style="padding:10px; display:inline-block;">📍 Naviga su Maps (Apple)</a>`;
+              let navUrl = this.getNavUrl(p);
+              let navHtml = `<a class="btn btn-primary" href="${navUrl}" target="_blank" title="Naviga" style="padding:10px; display:inline-block;">📍 Naviga su Maps (Apple)</a>`;
               let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama" style="padding:10px;">📞</a>` : '';
               
               html += `
-                  <div class="list-item" style="cursor:pointer;" onclick="window.open('https://maps.apple.com/?daddr=${daddr}', '_blank')">
+                  <div class="list-item" style="cursor:pointer; margin-bottom: 10px;" onclick="window.open('${navUrl}', '_blank')">
                       <div class="list-item-title" style="display:flex; align-items:center; margin-bottom:5px;">
                          ${p.name} 
                          <span style="color:var(--color-primary); font-weight:bold; font-size:0.85rem; margin-left:auto;">🚗 ~${p._dist} km</span>
@@ -396,10 +413,11 @@ class App {
                   </div>
               `;
           });
+          html += `</details>`;
           return html;
       };
 
-      listContainer.innerHTML = buildHtml(hotels, '🏨', 'Hotel') + buildHtml(rests, '🍽️', 'Ristoranti');
+      listContainer.innerHTML = buildHtml(hotels, '🏨', 'Hotel', true) + buildHtml(rests, '🍽️', 'Ristoranti', false);
       if (listContainer.innerHTML === '') {
           listContainer.innerHTML = '<div class="empty-state">Nessuna struttura trovata con coordinate GPS valide. Usa il tasto 📍 per l\'indirizzo quando le crei!</div>';
       }
@@ -447,8 +465,8 @@ class App {
          }
       }
 
-      let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
-      let navHtml = `<a class="btn btn-primary" href="https://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga">📍</a>`;
+      let navUrl = this.getNavUrl(p);
+      let navHtml = `<a class="btn btn-primary" href="${navUrl}" target="_blank" title="Naviga">📍</a>`;
       let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama">📞</a>` : '';
       
       let distanceTarget = this.customSearchTarget || this.currentLocation;
@@ -480,7 +498,7 @@ class App {
       `;
       
       el.querySelector('.share-btn').onclick = async () => {
-         const textContent = `📍 ${p.name}\nIndirizzo: ${p.address || ''}\n${p.phone ? `Tel: ${p.phone}\n` : ''}Naviga: https://maps.apple.com/?daddr=${daddr}`;
+         const textContent = `📍 ${p.name}\nIndirizzo: ${p.address || ''}\n${p.phone ? `Tel: ${p.phone}\n` : ''}Naviga: ${navUrl}`;
          if (navigator.share) {
              try { await navigator.share({ title: p.name, text: textContent }); }
              catch(err) { console.error(err); }
