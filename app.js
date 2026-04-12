@@ -282,8 +282,8 @@ class App {
               <b style="font-size:1.1rem; color:var(--color-primary);">${p.name}</b><br>
               <span style="color:gray; font-size: 0.9rem;">${p.address || ''}</span><br>
               ${p.phone ? `<a class="btn btn-accent btn-block" href="tel:${p.phone}" style="margin-top:10px; font-size:0.9rem; margin-bottom: 5px;">📞 Chiama</a>` : ''}
-              <a class="btn btn-primary btn-block" href="https://www.google.com/maps/dir/?api=1&destination=${daddr}" target="_blank" style="margin-top:5px; font-size:0.9rem;">
-                📍 Naviga
+              <a class="btn btn-primary btn-block" href="https://maps.apple.com/?daddr=${daddr}" target="_blank" style="margin-top:5px; font-size:0.9rem;">
+                📍 Naviga Apple Maps
               </a>
             </div>
           `);
@@ -368,17 +368,17 @@ class App {
           let html = `<h4 style="margin-top:15px; margin-bottom:10px; color:var(--text-main); font-size:1.1rem;">${icon}  ${title} Più Vicini</h4>`;
           places.forEach(p => {
               let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
-              let navHtml = `<a class="btn btn-primary" href="https://www.google.com/maps/dir/?api=1&destination=${daddr}" target="_blank" title="Naviga" style="padding:10px;">📍 Naviga</a>`;
+              let navHtml = `<a class="btn btn-primary" href="https://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga" style="padding:10px; display:inline-block;">📍 Naviga su Maps (Apple)</a>`;
               let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama" style="padding:10px;">📞</a>` : '';
               
               html += `
-                  <div class="list-item">
+                  <div class="list-item" style="cursor:pointer;" onclick="window.open('https://maps.apple.com/?daddr=${daddr}', '_blank')">
                       <div class="list-item-title" style="display:flex; align-items:center; margin-bottom:5px;">
                          ${p.name} 
                          <span style="color:var(--color-primary); font-weight:bold; font-size:0.85rem; margin-left:auto;">🚗 ~${p._dist} km</span>
                       </div>
                       <div class="list-item-addr">${p.address || ''}</div>
-                      <div class="list-item-actions" style="margin-top:10px; flex-direction:row; justify-content: flex-start; gap:10px;">
+                      <div class="list-item-actions" style="margin-top:10px; flex-direction:row; justify-content: flex-start; gap:10px;" onclick="event.stopPropagation()">
                          ${navHtml} ${callHtml}
                       </div>
                   </div>
@@ -436,7 +436,7 @@ class App {
       }
 
       let daddr = (p.lat && p.lng && !isNaN(p.lat)) ? `${p.lat},${p.lng}` : encodeURIComponent(p.address || p.name);
-      let navHtml = `<a class="btn btn-primary" href="https://www.google.com/maps/dir/?api=1&destination=${daddr}" target="_blank" title="Naviga">📍</a>`;
+      let navHtml = `<a class="btn btn-primary" href="https://maps.apple.com/?daddr=${daddr}" target="_blank" title="Naviga">📍</a>`;
       let callHtml = p.phone ? `<a class="btn btn-accent" href="tel:${p.phone}" title="Chiama">📞</a>` : '';
       
       let distanceTarget = this.customSearchTarget || this.currentLocation;
@@ -468,7 +468,7 @@ class App {
       `;
       
       el.querySelector('.share-btn').onclick = async () => {
-         const textContent = `📍 ${p.name}\nIndirizzo: ${p.address || ''}\n${p.phone ? `Tel: ${p.phone}\n` : ''}Naviga: https://www.google.com/maps/dir/?api=1&destination=${daddr}`;
+         const textContent = `📍 ${p.name}\nIndirizzo: ${p.address || ''}\n${p.phone ? `Tel: ${p.phone}\n` : ''}Naviga: https://maps.apple.com/?daddr=${daddr}`;
          if (navigator.share) {
              try { await navigator.share({ title: p.name, text: textContent }); }
              catch(err) { console.error(err); }
@@ -737,12 +737,12 @@ class App {
 
             if (!phone) {
                 // Regex per telefoni italiani nel testo HTML grezzo
-                const phoneRegex = /(?:\+39[\s.-]?)?(?:0\d{1,4}[\s.-]?\d{2,4}[\s.-]?\d{2,4}[\s.-]?\d{0,4}|3\d{2}[\s.-]?\d{3}[\s.-]?\d{4})/g;
+                const phoneRegex = /(?:\+39[\s.-]?)?(?:0\d{1,4}[\s.-]?\d{4,8}|3\d{2}[\s.-]?\d{6,7})/g;
                 const rawMatches = htmlContent.match(phoneRegex);
                 if (rawMatches) {
                     for(const m of rawMatches) {
                         let clean = m.replace(/[^\d]/g, '');
-                        if (clean.length >= 9 && clean.length <= 13) {
+                        if (clean.length >= 8 && clean.length <= 13) {
                             phone = m.trim();
                             break;
                         }
@@ -777,12 +777,12 @@ class App {
                 const searchText = (addrEl ? (addrEl.innerText || addrEl.textContent) : (doc.body ? (doc.body.innerText || doc.body.textContent) : '')).replace(/\s+/g, ' ');
 
                 // Regex per trovare Via/Piazza/... con numero civico
-                const viaRegex = /(?:Via|Piazza|Viale|Corso|Largo|Vicolo|Contrada|Loc\.?|Località|Strada|Provinciale|Statale|Frazione)\s+[A-Za-zÀ-ÿ'\s]{2,40?}\s*,?\s*\d{1,4}[a-z]?/i;
+                const viaRegex = /(?:Via|Piazza|Viale|Corso|Largo|Vicolo|Contrada|Loc\.?|Località|Strada|Provinciale|Statale|Frazione)\s+[A-Za-zÀ-ÿ'\s]{2,40}\s*,?\s*\d{1,5}[a-z]?/i;
                 const viaMatch = searchText.match(viaRegex);
                 if (viaMatch) via = viaMatch[0].trim().replace(/,$/, '');
                 
                 // Cerca CAP+Città
-                const capCittaRegex = /\b(\d{5})\s+([A-ZÀÈÌÒÙ][a-z\sàèìòù']{2,30})(?:\s*\([A-Z]{2}\))?/;
+                const capCittaRegex = /(\d{5})\s*[-|,|/]?\s*([A-Za-zÀ-ÿ\s']{2,40})(?:\s*\([A-Za-z]{2}\))?/;
                 const capMatch = searchText.match(capCittaRegex);
                 if (capMatch) citta = capMatch[1] + ' ' + capMatch[2].trim();
             }
@@ -838,7 +838,9 @@ class App {
         // Geocodifica al volo usando OpenStreetMap se è stato digitato un indirizzo testo ma non si è usato il GPS (📍)
         if((!lat || !lng) && address.trim().length > 0) {
             try {
-                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+                // Rimuoviamo " a " o " in " prima del geocoding e appendiamo l'Italia per maggiore precisione
+                let searchQ = address.replace(/\b(a|in)\b/ig, ',').replace(/\s+/g, ' ').trim();
+                const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQ)}&limit=1&countrycodes=it`);
                 const geodata = await res.json();
                 if (geodata && geodata.length > 0) {
                     lat = geodata[0].lat;
